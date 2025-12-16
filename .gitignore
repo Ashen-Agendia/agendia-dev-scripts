@@ -1,0 +1,13 @@
+# Archivos de PIDs de procesos
+.mf-pids
+.ms-pids
+.bff-pids
+
+# Logs
+logs/
+*.log
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+
