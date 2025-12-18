@@ -7,7 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_ROOT="$(dirname "$SCRIPT_DIR")"
 ROOT_DIR="$(dirname "$SCRIPTS_ROOT")"
 PIDS_FILE="$SCRIPTS_ROOT/.mf-pids"
-LOGS_DIR="$SCRIPTS_ROOT/logs"
+LOGS_ROOT="$SCRIPTS_ROOT/logs"
+LOGS_DIR="$LOGS_ROOT/mf"
 
 RESTARTED=0
 NOT_FOUND=0
@@ -109,6 +110,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 if [ $RESTARTED -gt 0 ]; then
   echo ""
   echo "💡 Los microfrontends han sido reiniciados."
-  echo "   Revisa los logs en logs/ para ver el output de cada uno."
+  echo "   Revisa los logs en logs/mf/ para ver el output de cada uno."
 fi
 

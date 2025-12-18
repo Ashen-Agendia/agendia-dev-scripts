@@ -22,7 +22,8 @@ $MF_DIRS = @(
 )
 
 $PIDS_FILE = Join-Path $SCRIPTS_ROOT ".mf-pids"
-$LOGS_DIR = Join-Path $SCRIPTS_ROOT "logs"
+$LOGS_ROOT = Join-Path $SCRIPTS_ROOT "logs"
+$LOGS_DIR = Join-Path $LOGS_ROOT "mf"
 $STARTED = 0
 $SKIPPED = 0
 $FAILED = 0
@@ -33,11 +34,22 @@ if (Test-Path $PIDS_FILE) {
 }
 
 # Crear directorio de logs si no existe
+if (-not (Test-Path $LOGS_ROOT)) {
+  New-Item -ItemType Directory -Path $LOGS_ROOT | Out-Null
+}
 if (-not (Test-Path $LOGS_DIR)) {
   New-Item -ItemType Directory -Path $LOGS_DIR | Out-Null
 }
 
-$npmPath = (Get-Command npm.cmd -ErrorAction SilentlyContinue)?.Source
+# Localizar npm (compatible con PowerShell 5+)
+$npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $npmCmd) {
+  $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+}
+$npmPath = $null
+if ($npmCmd) {
+  $npmPath = $npmCmd.Source
+}
 if (-not $npmPath) {
   Write-Host "❌ No se encontró npm en el PATH. Instala Node.js o abre la terminal de Node." -ForegroundColor Red
   exit 1
@@ -294,6 +306,6 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 if ($STARTED -gt 0) {
   Write-Host ""
   Write-Host "💡 Los microfrontends están corriendo en background." -ForegroundColor Cyan
-  Write-Host "   Revisa los logs en logs/ para ver el output de cada uno." -ForegroundColor Cyan
+  Write-Host "   Revisa los logs en logs/mf/ para ver el output de cada uno." -ForegroundColor Cyan
 }
 

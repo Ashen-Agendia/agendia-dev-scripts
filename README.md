@@ -9,7 +9,9 @@ Scripts de desarrollo para gestionar repositorios, microfrontends, microservicio
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Gestión de Repositorios](#gestión-de-repositorios)
 - [Gestión de Microfrontends](#gestión-de-microfrontends)
+- [Gestión de Microservicios](#gestión-de-microservicios)
 - [Crear Nuevo Microfrontend](#crear-nuevo-microfrontend)
+- [Crear Nuevo Microservicio](#crear-nuevo-microservicio)
 - [Uso en Windows](#uso-en-windows)
 
 ---
@@ -34,8 +36,17 @@ agendia-dev-scripts/
 │   ├── restart-all-mf.sh       # Reiniciar todos los MFs (Bash)
 │   └── restart-all-mf.ps1      # Reiniciar todos los MFs (PowerShell)
 │
-├── microservices/               # Scripts para gestionar MSs (futuro)
-│   └── (scripts futuros)
+├── microservices/               # Scripts para gestionar MSs
+│   ├── install-all-ms.sh       # Instalar dependencias de todos los MSs
+│   ├── install-all-ms.ps1       # Instalar dependencias de todos los MSs (PowerShell)
+│   ├── start-all-ms.sh          # Iniciar todos los MSs (Bash)
+│   ├── start-all-ms.ps1         # Iniciar todos los MSs (PowerShell)
+│   ├── stop-all-ms.sh           # Detener todos los MSs (Bash)
+│   ├── stop-all-ms.ps1          # Detener todos los MSs (PowerShell)
+│   ├── list-all-ms.sh           # Listar MSs corriendo (Bash)
+│   ├── list-all-ms.ps1          # Listar MSs corriendo (PowerShell)
+│   ├── restart-all-ms.sh        # Reiniciar todos los MSs (Bash)
+│   └── restart-all-ms.ps1       # Reiniciar todos los MSs (PowerShell)
 │
 ├── bffs/                        # Scripts para gestionar BFFs (futuro)
 │   └── (scripts futuros)
@@ -45,7 +56,8 @@ agendia-dev-scripts/
 │   └── update-all-repos.sh     # Actualizar todos los repos
 │
 └── templates/                   # Scripts para crear desde templates
-    └── create-mf.sh            # Crear nuevo microfrontend
+    ├── create-mf.sh            # Crear nuevo microfrontend
+    └── create-ms.sh            # Crear nuevo microservicio
 ```
 
 ---
@@ -114,7 +126,7 @@ Inicia todos los microfrontends en modo desarrollo en background.
 
 **Características:**
 - Inicia todos los MFs en paralelo
-- Guarda los logs en `logs/` (en la raíz del proyecto de scripts)
+- Guarda los logs en `logs/mf/` (en la raíz del proyecto de scripts)
 - Guarda los PIDs en `.mf-pids` (en la raíz del proyecto de scripts) para poder detenerlos después
 - Muestra un resumen de los iniciados, saltados y fallidos
 
@@ -192,6 +204,127 @@ Reinicia todos los microfrontends que están corriendo actualmente.
 
 ---
 
+## ⚙️ Gestión de Microservicios
+
+### Instalar Dependencias
+
+#### `microservices/install-all-ms.sh` / `microservices/install-all-ms.ps1`
+
+Instala/compila las dependencias de todos los microservicios automáticamente.
+
+**Bash:**
+```bash
+./microservices/install-all-ms.sh
+```
+
+**PowerShell:**
+```powershell
+./microservices/install-all-ms.ps1
+```
+
+**Características:**
+- Ejecuta `sbt compile` en cada microservicio Scala/Akka HTTP
+- Solo compila en directorios que existan y tengan `build.sbt`
+- Muestra un resumen al final con éxitos, saltados y fallidos
+
+---
+
+### Iniciar Microservicios
+
+#### `microservices/start-all-ms.sh` / `microservices/start-all-ms.ps1`
+
+Inicia todos los microservicios en modo desarrollo en background.
+
+**Bash:**
+```bash
+./microservices/start-all-ms.sh
+```
+
+**PowerShell:**
+```powershell
+./microservices/start-all-ms.ps1
+```
+
+**Características:**
+- Inicia todos los MSs en paralelo
+- Guarda los logs en `logs/ms/` (en la raíz del proyecto de scripts)
+- Guarda los PIDs en `.ms-pids` (en la raíz del proyecto de scripts) para poder detenerlos después
+- Espera a que cada servicio esté realmente levantado (build terminado y servidor online)
+- Muestra un resumen de los iniciados, saltados y fallidos
+- Soporta servicios Scala/Akka HTTP (sbt) y Node/Nest (npm)
+
+---
+
+### Detener Microservicios
+
+#### `microservices/stop-all-ms.sh` / `microservices/stop-all-ms.ps1`
+
+Detiene todos los microservicios que están corriendo.
+
+**Bash:**
+```bash
+./microservices/stop-all-ms.sh
+```
+
+**PowerShell:**
+```powershell
+./microservices/stop-all-ms.ps1
+```
+
+**Características:**
+- Lee los PIDs desde `.ms-pids` y detiene los procesos
+- Muestra un resumen de los procesos detenidos
+
+---
+
+### Listar Microservicios
+
+#### `microservices/list-all-ms.sh` / `microservices/list-all-ms.ps1`
+
+Lista todos los microservicios que están corriendo actualmente.
+
+**Bash:**
+```bash
+./microservices/list-all-ms.sh
+```
+
+**PowerShell:**
+```powershell
+./microservices/list-all-ms.ps1
+```
+
+**Características:**
+- Lee los PIDs desde `.ms-pids` y verifica qué procesos están corriendo
+- Muestra el estado de cada MS (corriendo, detenido, no iniciado)
+- Muestra un resumen con la cantidad de MSs corriendo, detenidos y no iniciados
+
+---
+
+### Reiniciar Microservicios
+
+#### `microservices/restart-all-ms.sh` / `microservices/restart-all-ms.ps1`
+
+Reinicia todos los microservicios que están corriendo actualmente.
+
+**Bash:**
+```bash
+./microservices/restart-all-ms.sh
+```
+
+**PowerShell:**
+```powershell
+./microservices/restart-all-ms.ps1
+```
+
+**Características:**
+- Lee los PIDs desde `.ms-pids` y detiene solo los procesos que están corriendo
+- Reinicia automáticamente los microservicios que estaban activos
+- No reinicia los que no estaban corriendo (solo los que estaban activos)
+- Útil para aplicar cambios de configuración sin tener que hacer stop y start manualmente
+- Muestra un resumen de los reiniciados, no encontrados y fallidos
+
+---
+
 ## ✨ Crear Nuevo Microfrontend
 
 ### `templates/create-mf.sh`
@@ -249,6 +382,58 @@ npm run dev
 
 ---
 
+## ⚙️ Crear Nuevo Microservicio
+
+### `templates/create-ms.sh`
+
+Crea un nuevo microservicio desde el template base con configuración automática.
+
+```bash
+./templates/create-ms.sh <nombre-ms>
+```
+
+**Ejemplo:**
+```bash
+./templates/create-ms.sh agenda
+```
+
+**⚠️ Importante:** Solo pasa el nombre del MS **sin** el prefijo `agendia-ms-`. El script agregará automáticamente el prefijo.
+
+- ✅ Correcto: `./templates/create-ms.sh agenda` → crea `agendia-ms-agenda`
+- ❌ Incorrecto: `./templates/create-ms.sh agendia-ms-agenda` → crearía `agendia-ms-agendia-ms-agenda`
+
+**💡 Si el repositorio ya está clonado:**
+- Si el directorio ya existe, el script solo actualizará los archivos de configuración necesarios
+- No sobrescribirá tu código existente
+- Útil para configurar repositorios ya clonados
+
+**Características:**
+- ✅ Detecta automáticamente un puerto disponible (desde 4001)
+- ✅ Actualiza `application.conf` con el puerto correcto
+- ✅ Actualiza `openapi.yaml` con el nombre y puerto del servicio
+- ✅ Actualiza `README.md` con la configuración del MS
+- ✅ Configura todos los archivos necesarios
+- ✅ Limpia archivos temporales
+
+**Qué hace el script:**
+
+1. **Encuentra un puerto disponible** automáticamente (desde 4001)
+2. **Copia el template** `agendia-template-ms` a `agendia-ms-<nombre>`
+3. **Actualiza `application.conf`** con el nuevo nombre y puerto
+4. **Actualiza `openapi.yaml`** con el nombre del servicio y puerto
+5. **Actualiza `README.md`** con la configuración del MS
+6. **Limpia** archivos temporales (`.git` si aplica)
+
+**Próximos pasos después de crear:**
+
+```bash
+cd agendia-ms-<nombre>
+sbt compile
+sbt run
+```
+
+---
+
 ## 💻 Uso en Windows
 
 ### Scripts Bash (.sh)
@@ -267,6 +452,8 @@ Los scripts PowerShell están optimizados para Windows y funcionan mejor en este
 ./microfrontends/stop-all-mf.ps1
 ./microfrontends/list-all-mf.ps1
 ./microfrontends/restart-all-mf.ps1
+./microservices/start-all-ms.ps1
+./microservices/stop-all-ms.ps1
 ```
 
 **Recomendación:** En Windows, usa los scripts PowerShell (`.ps1`) para mejor compatibilidad.
@@ -277,8 +464,10 @@ Los scripts PowerShell están optimizados para Windows y funcionan mejor en este
 
 Los scripts generan algunos archivos temporales en la raíz del proyecto de scripts:
 
-- **`.mf-pids`**: Contiene los PIDs de los procesos corriendo (para poder detenerlos)
-- **`logs/`**: Directorio con los logs de cada microfrontend
+- **`.mf-pids`**: Contiene los PIDs de los procesos de microfrontends corriendo (para poder detenerlos)
+- **`.ms-pids`**: Contiene los PIDs de los procesos de microservicios corriendo (para poder detenerlos)
+- **`logs/mf/`**: Directorio con los logs de cada microfrontend
+- **`logs/ms/`**: Directorio con los logs de cada microservicio
 
 Estos archivos están en `.gitignore` y no se deben commitear.
 
@@ -288,9 +477,8 @@ Estos archivos están en `.gitignore` y no se deben commitear.
 
 La estructura está preparada para futuros scripts:
 
-- **`microservices/`**: Scripts para gestionar microservicios (instalar, iniciar, detener, etc.)
 - **`bffs/`**: Scripts para gestionar BFFs (instalar, iniciar, detener, etc.)
-- **`templates/`**: Más scripts para crear componentes desde templates (create-ms.sh, create-bff.sh, etc.)
+- **`templates/`**: Más scripts para crear componentes desde templates (create-bff.sh, etc.)
 
 ---
 
@@ -298,4 +486,7 @@ La estructura está preparada para futuros scripts:
 
 - Todos los scripts asumen que están en un monorepo donde los repositorios están en el directorio padre del proyecto de scripts.
 - Los scripts detectan automáticamente las rutas correctas, así que puedes ejecutarlos desde cualquier ubicación dentro del proyecto de scripts.
-- Los archivos de logs y PIDs se comparten entre todos los scripts del mismo tipo (todos los scripts de MFs comparten el mismo `.mf-pids` y `logs/`).
+- Los archivos de logs y PIDs se comparten entre todos los scripts del mismo tipo:
+  - Todos los scripts de MFs comparten el mismo `.mf-pids` y `logs/mf/`
+  - Todos los scripts de MSs comparten el mismo `.ms-pids` y `logs/ms/`
+- La lista de microservicios gestionados se define en cada script en la variable `MS_DIRS`. Para agregar un nuevo microservicio, recuerda añadirlo a `MS_DIRS` en los scripts correspondientes.

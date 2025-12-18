@@ -1,29 +1,24 @@
 #!/bin/bash
 
-echo "🚀 Iniciando todos los microfrontends en desarrollo..."
+echo "🚀 Iniciando todos los microservicios en desarrollo..."
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_ROOT="$(dirname "$SCRIPT_DIR")"
 ROOT_DIR="$(dirname "$SCRIPTS_ROOT")"
 
-MF_DIRS=(
-  "agendia-template-mf"
-  "agendia-mf-shell"
-  "agendia-mf-auth"
-  "agendia-mf-agenda"
-  "agendia-mf-sales"
-  "agendia-mf-clients"
-  "agendia-mf-dashboard"
-  "agendia-mf-organization"
-  "agendia-mf-platform"
-  "agendia-mf-landing"
-  "agendia-mf-public-booking"
+MS_DIRS=(
+  "agendia-template-ms"
+  "agendia-ms-agenda"
+  "agendia-ms-clients"
+  "agendia-ms-notifications"
+  "agendia-ms-organization"
+  "agendia-ms-platform"
+  "agendia-ms-sales"
 )
 
-PIDS_FILE="$SCRIPTS_ROOT/.mf-pids"
-LOGS_ROOT="$SCRIPTS_ROOT/logs"
-LOGS_DIR="$LOGS_ROOT/mf"
+PIDS_FILE="$SCRIPTS_ROOT/.ms-pids"
+LOGS_DIR="$SCRIPTS_ROOT/logs/ms"
 STARTED=0
 SKIPPED=0
 FAILED=0
@@ -34,25 +29,34 @@ if [ -f "$PIDS_FILE" ]; then
 fi
 
 # Crear directorio de logs si no existe
-mkdir -p "$LOGS_ROOT"
 mkdir -p "$LOGS_DIR"
 
-for dirName in "${MF_DIRS[@]}"; do
+for dirName in "${MS_DIRS[@]}"; do
   dirPath="$ROOT_DIR/$dirName"
+  sbtBuildPath="$dirPath/build.sbt"
   packageJsonPath="$dirPath/package.json"
-  
-  if [ -d "$dirPath" ] && [ -f "$packageJsonPath" ]; then
+
+  if [ -d "$dirPath" ] && { [ -f "$sbtBuildPath" ] || [ -f "$packageJsonPath" ]; }; then
     echo "🚀 Iniciando $dirName..."
-    
+
     cd "$dirPath" || continue
-    
-    # Iniciar en background y guardar el PID
-    npm run dev > "$LOGS_DIR/${dirName}.log" 2> "$LOGS_DIR/${dirName}.error.log" &
+
+    LOG_OUT="$LOGS_DIR/${dirName}.log"
+    LOG_ERR="$LOGS_DIR/${dirName}.error.log"
+
+    if [ -f "$sbtBuildPath" ]; then
+      # Scala / Akka HTTP (sbt)
+      sbt run > "$LOG_OUT" 2> "$LOG_ERR" &
+    else
+      # Fallback Node/Nest u otros basados en npm
+      npm run dev > "$LOG_OUT" 2> "$LOG_ERR" &
+    fi
+
     PID=$!
     echo "$PID:$dirName" >> "$PIDS_FILE"
-    
+
     cd "$ROOT_DIR" || continue
-    
+
     if kill -0 $PID 2>/dev/null; then
       echo "   ✅ $dirName iniciado (PID: $PID)"
       ((STARTED++))
@@ -62,9 +66,10 @@ for dirName in "${MF_DIRS[@]}"; do
       ((FAILED++))
     fi
   else
-    echo "   ⏭️  Saltando $dirName (no existe o no tiene package.json)"
+    echo "   ⏭️  Saltando $dirName (no existe o no tiene build.sbt / package.json)"
     ((SKIPPED++))
   fi
+
 done
 
 echo ""
@@ -75,12 +80,11 @@ echo "   ⏭️  Saltados: $SKIPPED"
 echo "   ❌ Fallidos: $FAILED"
 echo ""
 echo "📝 Logs guardados en: $LOGS_DIR"
-echo "🛑 Para detener todos: ./stop-all-mf.sh"
+echo "🛑 Para detener todos (pending): crear script stop-all-ms.sh usando .ms-pids"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if [ $STARTED -gt 0 ]; then
   echo ""
-  echo "💡 Los microfrontends están corriendo en background."
-  echo "   Revisa los logs en logs/mf/ para ver el output de cada uno."
+  echo "💡 Los microservicios están corriendo en background."
+  echo "   Revisa los logs en logs/ms/ para ver el output de cada uno."
 fi
-

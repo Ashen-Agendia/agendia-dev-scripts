@@ -7,13 +7,22 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SCRIPTS_ROOT = Split-Path -Parent $SCRIPT_DIR
 $ROOT_DIR = Split-Path -Parent $SCRIPTS_ROOT
 $PIDS_FILE = Join-Path $SCRIPTS_ROOT ".mf-pids"
-$LOGS_DIR = Join-Path $SCRIPTS_ROOT "logs"
+$LOGS_ROOT = Join-Path $SCRIPTS_ROOT "logs"
+$LOGS_DIR = Join-Path $LOGS_ROOT "mf"
 
 $RESTARTED = 0
 $NOT_FOUND = 0
 $FAILED = 0
 
-$npmPath = (Get-Command npm.cmd -ErrorAction SilentlyContinue)?.Source
+# Localizar npm (compatible con PowerShell 5+)
+$npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $npmCmd) {
+  $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+}
+$npmPath = $null
+if ($npmCmd) {
+  $npmPath = $npmCmd.Source
+}
 if (-not $npmPath) {
   Write-Host "❌ No se encontró npm en el PATH. Instala Node.js o abre la terminal de Node." -ForegroundColor Red
   exit 1
@@ -129,6 +138,6 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 if ($RESTARTED -gt 0) {
   Write-Host ""
   Write-Host "💡 Los microfrontends han sido reiniciados." -ForegroundColor Cyan
-  Write-Host "   Revisa los logs en logs/ para ver el output de cada uno." -ForegroundColor Cyan
+  Write-Host "   Revisa los logs en logs/mf/ para ver el output de cada uno." -ForegroundColor Cyan
 }
 
