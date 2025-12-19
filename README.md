@@ -6,6 +6,7 @@ Scripts de desarrollo para gestionar repositorios, microfrontends, microservicio
 
 ## 📋 Índice
 
+- [Instalación de Dependencias del Sistema](#instalación-de-dependencias-del-sistema)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Gestión de Repositorios](#gestión-de-repositorios)
 - [Gestión de Microfrontends](#gestión-de-microfrontends)
@@ -13,6 +14,41 @@ Scripts de desarrollo para gestionar repositorios, microfrontends, microservicio
 - [Crear Nuevo Microfrontend](#crear-nuevo-microfrontend)
 - [Crear Nuevo Microservicio](#crear-nuevo-microservicio)
 - [Uso en Windows](#uso-en-windows)
+
+---
+
+## 🔧 Instalación de Dependencias del Sistema
+
+Antes de usar los scripts, asegúrate de tener todas las dependencias del sistema instaladas.
+
+### Script Automático (Recomendado)
+
+```bash
+chmod +x install-system-deps.sh
+./install-system-deps.sh
+```
+
+Este script detecta e instala automáticamente:
+- ✅ **Node.js 18+** y **npm** (para microfrontends)
+- ✅ **Java 11+** (requisito de sbt)
+- ✅ **sbt** (Scala Build Tool para microservicios)
+- ✅ **gh** (GitHub CLI, opcional)
+- ✅ **jq** (procesador JSON, opcional)
+
+**Sistemas soportados:** Ubuntu/Debian, Fedora, CentOS/RHEL, macOS
+
+### Verificación Manual
+
+Si prefieres instalar manualmente o verificar las versiones:
+
+```bash
+node --version  # Debe ser v18 o superior
+npm --version
+java -version  # Debe ser 11 o superior
+sbt --version
+```
+
+**📚 Documentación completa:** Ver [Instalación de Dependencias](../../agendia-docs/docs/setup/instalacion-dependencias.md)
 
 ---
 
@@ -24,6 +60,7 @@ El proyecto está organizado en carpetas modulares según el tipo de componente:
 agendia-dev-scripts/
 ├── README.md                    # Este archivo
 ├── .gitignore                   # Archivos ignorados (logs, PIDs, etc.)
+├── install-system-deps.sh        # Instalar dependencias del sistema ⭐
 │
 ├── microfrontends/              # Scripts para gestionar MFs
 │   ├── install-all-mf.sh       # Instalar dependencias de todos los MFs

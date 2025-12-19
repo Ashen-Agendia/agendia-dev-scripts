@@ -1,5 +1,27 @@
 #!/bin/bash
 
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Función para verificar si un comando existe
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Verificar que sbt esté instalado
+if ! command_exists sbt; then
+    echo -e "${RED}❌ Error: sbt no está instalado${NC}"
+    echo ""
+    echo "Por favor instala sbt primero ejecutando:"
+    echo "  ./install-system-deps.sh"
+    echo ""
+    echo "O instala manualmente desde: https://www.scala-sbt.org/download.html"
+    exit 1
+fi
+
 echo "📦 Instalando dependencias de todos los microservicios..."
 echo ""
 

@@ -1,5 +1,27 @@
 #!/bin/bash
 
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Función para verificar si un comando existe
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Verificar que npm esté instalado
+if ! command_exists npm; then
+    echo -e "${RED}❌ Error: npm no está instalado${NC}"
+    echo ""
+    echo "Por favor instala Node.js y npm primero ejecutando:"
+    echo "  ./install-system-deps.sh"
+    echo ""
+    echo "O instala manualmente desde: https://nodejs.org/"
+    exit 1
+fi
+
 echo "Instalando dependencias en todos los microfrontends..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

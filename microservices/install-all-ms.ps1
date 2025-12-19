@@ -28,7 +28,12 @@ if (-not $sbtPath) {
 }
 
 if (-not $sbtPath) {
-  Write-Host "❌ No se encontró 'sbt' en el PATH. Instala sbt o configúralo en la sesión." -ForegroundColor Red
+  Write-Host "❌ No se encontró 'sbt' en el PATH." -ForegroundColor Red
+  Write-Host ""
+  Write-Host "Por favor instala sbt primero:" -ForegroundColor Yellow
+  Write-Host "  - En Linux/Mac: ./install-system-deps.sh" -ForegroundColor Yellow
+  Write-Host "  - En Windows: https://www.scala-sbt.org/download.html" -ForegroundColor Yellow
+  Write-Host ""
   exit 1
 }
 

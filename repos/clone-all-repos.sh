@@ -11,132 +11,42 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Función para instalar dependencias
-install_dependencies() {
-    local missing_deps=()
-    
-    if ! command_exists gh; then
-        missing_deps+=("gh")
-    fi
-    
-    if ! command_exists jq; then
-        missing_deps+=("jq")
-    fi
-    
-    if [ ${#missing_deps[@]} -eq 0 ]; then
-        return 0
-    fi
-    
-    echo -e "${YELLOW}⚠️  Faltan las siguientes dependencias: ${missing_deps[*]}${NC}"
-    echo ""
-    
-    # Detectar el sistema operativo y gestor de paquetes
-    if command_exists apt-get; then
-        # Debian/Ubuntu
-        echo -e "${YELLOW}Intentando instalar dependencias con apt-get...${NC}"
-        sudo apt-get update
-        
-        if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            if ! sudo apt-get install -y gh 2>/dev/null; then
-                echo -e "${YELLOW}gh no está en los repositorios estándar. Agregando repositorio oficial de GitHub CLI...${NC}"
-                # Instalar dependencias necesarias para agregar el repositorio
-                sudo apt-get install -y curl gpg
-                
-                # Agregar la clave GPG de GitHub CLI
-                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-                sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-                
-                # Agregar el repositorio
-                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-                
-                # Actualizar e instalar
-                sudo apt-get update
-                if ! sudo apt-get install -y gh; then
-                    echo -e "${RED}❌ No se pudo instalar gh después de agregar el repositorio oficial.${NC}"
-                    return 1
-                fi
-            fi
-        fi
-        
-        if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
-            sudo apt-get install -y jq
-        fi
-    elif command_exists yum; then
-        # CentOS/RHEL/Fedora (versiones antiguas)
-        echo -e "${YELLOW}Intentando instalar dependencias con yum...${NC}"
-        if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            if ! sudo yum install -y gh 2>/dev/null; then
-                echo -e "${YELLOW}gh no está en los repositorios estándar. Agregando repositorio oficial de GitHub CLI...${NC}"
-                sudo yum install -y curl
-                sudo yum config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-                sudo yum install -y gh
-            fi
-        fi
-        if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
-            sudo yum install -y jq
-        fi
-    elif command_exists dnf; then
-        # Fedora
-        echo -e "${YELLOW}Intentando instalar dependencias con dnf...${NC}"
-        if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            if ! sudo dnf install -y gh 2>/dev/null; then
-                echo -e "${YELLOW}gh no está en los repositorios estándar. Agregando repositorio oficial de GitHub CLI...${NC}"
-                sudo dnf install -y curl
-                sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-                sudo dnf install -y gh
-            fi
-        fi
-        if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
-            sudo dnf install -y jq
-        fi
-    elif command_exists brew; then
-        # macOS
-        echo -e "${YELLOW}Intentando instalar dependencias con brew...${NC}"
-        if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            brew install gh
-        fi
-        if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
-            brew install jq
-        fi
-    else
-        echo -e "${RED}❌ No se detectó un gestor de paquetes compatible.${NC}"
-        echo ""
-        echo "Por favor instala las dependencias manualmente:"
-        if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            echo "  - gh: https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
-        fi
-        if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
-            echo "  - jq: https://stedolan.github.io/jq/download/"
-        fi
-        return 1
-    fi
-    
-    echo ""
-    # Verificar nuevamente después de la instalación
-    local still_missing=()
-    for dep in "${missing_deps[@]}"; do
-        if ! command_exists "$dep"; then
-            still_missing+=("$dep")
-        fi
-    done
-    
-    if [ ${#still_missing[@]} -gt 0 ]; then
-        echo -e "${RED}❌ Aún faltan dependencias: ${still_missing[*]}${NC}"
-        return 1
-    fi
-    
-    echo -e "${GREEN}✅ Todas las dependencias instaladas correctamente${NC}"
-    return 0
-}
-
-# Verificar e instalar dependencias
+# Verificar dependencias
 echo "🔍 Verificando dependencias..."
 echo ""
 
-if ! install_dependencies; then
-    echo -e "${RED}❌ Error: No se pudieron instalar todas las dependencias necesarias.${NC}"
+missing_deps=()
+
+if ! command_exists gh; then
+    missing_deps+=("gh")
+fi
+
+if ! command_exists jq; then
+    missing_deps+=("jq")
+fi
+
+if [ ${#missing_deps[@]} -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Faltan las siguientes dependencias: ${missing_deps[*]}${NC}"
+    echo ""
+    echo "Por favor instala las dependencias ejecutando:"
+    echo "  ./install-system-deps.sh"
+    echo ""
+    echo "O instala manualmente:"
+    for dep in "${missing_deps[@]}"; do
+        case $dep in
+            gh)
+                echo "  - GitHub CLI: https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
+                ;;
+            jq)
+                echo "  - jq: https://stedolan.github.io/jq/download/"
+                ;;
+        esac
+    done
     exit 1
 fi
+
+echo -e "${GREEN}✅ Todas las dependencias están instaladas${NC}"
+echo ""
 
 # Verificar que gh está autenticado
 if ! gh auth status >/dev/null 2>&1; then
