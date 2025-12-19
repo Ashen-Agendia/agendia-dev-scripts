@@ -123,16 +123,96 @@ install_sbt() {
     echo -e "${BLUE}🔧 Instalando sbt (Scala Build Tool)...${NC}"
     
     if [ "$pm" = "apt" ]; then
-        # Agregar repositorio oficial de sbt
-        echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
-        echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | sudo tee /etc/apt/sources.list.d/sbt_old.list
+        # Método 1: Intentar con repositorio oficial
+        echo -e "${YELLOW}   Intentando método 1: Repositorio oficial...${NC}"
         
-        # Agregar clave GPG
-        curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo gpg --dearmor -o /usr/share/keyrings/sbt-archive-keyring.gpg
-        sudo chmod go+r /usr/share/keyrings/sbt-archive-keyring.gpg
-        
+        # Instalar dependencias necesarias
         sudo apt-get update
-        sudo apt-get install -y sbt
+        sudo apt-get install -y curl gnupg2
+        
+        # Agregar clave GPG primero
+        if ! curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo gpg --dearmor -o /usr/share/keyrings/sbt-archive-keyring.gpg 2>/dev/null; then
+            echo -e "${YELLOW}   ⚠️  No se pudo agregar la clave GPG desde keyserver.ubuntu.com${NC}"
+            echo -e "${YELLOW}   Intentando método alternativo...${NC}"
+            
+            # Método alternativo: descargar clave directamente
+            if ! curl -fsSL https://repo.scala-sbt.org/scalasbt/debian/sbt-archive-keyring.gpg | sudo tee /usr/share/keyrings/sbt-archive-keyring.gpg > /dev/null 2>&1; then
+                echo -e "${YELLOW}   ⚠️  Método alternativo falló, intentando instalación manual...${NC}"
+            fi
+        fi
+        
+        if [ -f /usr/share/keyrings/sbt-archive-keyring.gpg ]; then
+            sudo chmod go+r /usr/share/keyrings/sbt-archive-keyring.gpg
+            
+            # Agregar repositorio
+            echo "deb [signed-by=/usr/share/keyrings/sbt-archive-keyring.gpg] https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list > /dev/null
+            
+            sudo apt-get update
+            
+            if sudo apt-get install -y sbt 2>/dev/null; then
+                return 0
+            fi
+        fi
+        
+        # Método 2: Intentar con apt-key (deprecated pero funciona en Debian antiguo)
+        echo -e "${YELLOW}   Intentando método 2: Usando apt-key (compatible con Debian antiguo)...${NC}"
+        
+        # Limpiar intentos anteriores
+        sudo rm -f /etc/apt/sources.list.d/sbt*.list /usr/share/keyrings/sbt-archive-keyring.gpg 2>/dev/null
+        
+        if curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo apt-key add - 2>/dev/null; then
+            echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list > /dev/null
+            sudo apt-get update
+            
+            if sudo apt-get install -y sbt 2>/dev/null; then
+                return 0
+            fi
+        fi
+        
+        # Método 3: Instalación manual desde binario
+        echo -e "${YELLOW}   Intentando método 3: Instalación manual desde binario...${NC}"
+        
+        local sbt_version="1.10.2"
+        local temp_dir=$(mktemp -d)
+        
+        cd "$temp_dir" || return 1
+        
+        # Descargar sbt como zip (más común)
+        if curl -fsSL "https://github.com/sbt/sbt/releases/download/v${sbt_version}/sbt-${sbt_version}.zip" -o sbt.zip; then
+            if command_exists unzip; then
+                unzip -q sbt.zip
+                if [ -d "sbt" ]; then
+                    sudo mv sbt /usr/local/
+                    sudo ln -sf /usr/local/sbt/bin/sbt /usr/local/bin/sbt
+                    sudo chmod +x /usr/local/bin/sbt
+                    
+                    cd - > /dev/null
+                    rm -rf "$temp_dir"
+                    
+                    if command_exists sbt; then
+                        return 0
+                    fi
+                fi
+            fi
+        fi
+        
+        cd - > /dev/null
+        rm -rf "$temp_dir"
+        
+        # Método 4: Usar SDKMAN o sugerir instalación manual
+        echo -e "${YELLOW}   ⚠️  Los métodos automáticos fallaron.${NC}"
+        echo ""
+        echo -e "${YELLOW}   Opciones alternativas:${NC}"
+        echo ""
+        echo "   1. Instalar usando SDKMAN (recomendado):"
+        echo "      curl -s \"https://get.sdkman.io\" | bash"
+        echo "      source \"\$HOME/.sdkman/bin/sdkman-init.sh\""
+        echo "      sdk install sbt"
+        echo ""
+        echo "   2. Descargar manualmente desde:"
+        echo "      https://www.scala-sbt.org/download.html"
+        echo ""
+        return 1
     elif [ "$pm" = "dnf" ]; then
         # Fedora - sbt puede estar en repositorios
         if ! sudo dnf install -y sbt 2>/dev/null; then
