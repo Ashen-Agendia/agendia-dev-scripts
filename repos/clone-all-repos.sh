@@ -35,14 +35,29 @@ install_dependencies() {
         # Debian/Ubuntu
         echo -e "${YELLOW}Intentando instalar dependencias con apt-get...${NC}"
         sudo apt-get update
+        
         if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            if ! sudo apt-get install -y gh; then
-                echo -e "${RED}❌ No se pudo instalar gh. Por favor instálalo manualmente:${NC}"
-                echo "   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg"
-                echo "   echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null"
-                echo "   sudo apt update && sudo apt install gh"
+            if ! sudo apt-get install -y gh 2>/dev/null; then
+                echo -e "${YELLOW}gh no está en los repositorios estándar. Agregando repositorio oficial de GitHub CLI...${NC}"
+                # Instalar dependencias necesarias para agregar el repositorio
+                sudo apt-get install -y curl gpg
+                
+                # Agregar la clave GPG de GitHub CLI
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+                
+                # Agregar el repositorio
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                
+                # Actualizar e instalar
+                sudo apt-get update
+                if ! sudo apt-get install -y gh; then
+                    echo -e "${RED}❌ No se pudo instalar gh después de agregar el repositorio oficial.${NC}"
+                    return 1
+                fi
             fi
         fi
+        
         if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
             sudo apt-get install -y jq
         fi
@@ -50,8 +65,11 @@ install_dependencies() {
         # CentOS/RHEL/Fedora (versiones antiguas)
         echo -e "${YELLOW}Intentando instalar dependencias con yum...${NC}"
         if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            if ! sudo yum install -y gh; then
-                echo -e "${RED}❌ No se pudo instalar gh. Por favor instálalo manualmente desde: https://github.com/cli/cli/blob/trunk/docs/install_linux.md${NC}"
+            if ! sudo yum install -y gh 2>/dev/null; then
+                echo -e "${YELLOW}gh no está en los repositorios estándar. Agregando repositorio oficial de GitHub CLI...${NC}"
+                sudo yum install -y curl
+                sudo yum config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+                sudo yum install -y gh
             fi
         fi
         if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
@@ -61,8 +79,11 @@ install_dependencies() {
         # Fedora
         echo -e "${YELLOW}Intentando instalar dependencias con dnf...${NC}"
         if [[ " ${missing_deps[@]} " =~ " gh " ]]; then
-            if ! sudo dnf install -y gh; then
-                echo -e "${RED}❌ No se pudo instalar gh. Por favor instálalo manualmente desde: https://github.com/cli/cli/blob/trunk/docs/install_linux.md${NC}"
+            if ! sudo dnf install -y gh 2>/dev/null; then
+                echo -e "${YELLOW}gh no está en los repositorios estándar. Agregando repositorio oficial de GitHub CLI...${NC}"
+                sudo dnf install -y curl
+                sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+                sudo dnf install -y gh
             fi
         fi
         if [[ " ${missing_deps[@]} " =~ " jq " ]]; then
