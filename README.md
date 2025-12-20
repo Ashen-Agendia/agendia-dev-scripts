@@ -8,6 +8,7 @@ Scripts de desarrollo para gestionar repositorios, microfrontends, microservicio
 
 - [Instalación de Dependencias del Sistema](#instalación-de-dependencias-del-sistema)
 - [Estructura del Proyecto](#estructura-del-proyecto)
+- [Scripts de Setup](#scripts-de-setup)
 - [Gestión de Repositorios](#gestión-de-repositorios)
 - [Gestión de Microfrontends](#gestión-de-microfrontends)
 - [Gestión de Microservicios](#gestión-de-microservicios)
@@ -88,6 +89,20 @@ agendia-dev-scripts/
 ├── bffs/                        # Scripts para gestionar BFFs (futuro)
 │   └── (scripts futuros)
 │
+├── setup/                       # Scripts de setup de infraestructura
+│   ├── infisical/              # Scripts para Infisical
+│   │   ├── install.sh          # Instalación automática (Bash)
+│   │   ├── install.ps1         # Instalación automática (PowerShell)
+│   │   ├── clean.sh            # Limpieza completa (Bash)
+│   │   ├── clean.ps1           # Limpieza completa (PowerShell)
+│   │   └── backup.sh           # Backups
+│   └── postgres/               # Scripts para PostgreSQL
+│       ├── install.sh          # Instalación automática (Bash)
+│       ├── install.ps1         # Instalación automática (PowerShell)
+│       ├── clean.sh            # Limpieza completa (Bash)
+│       ├── clean.ps1           # Limpieza completa (PowerShell)
+│       └── backup.sh           # Backups
+│
 ├── repos/                       # Scripts para gestionar repositorios
 │   ├── clone-all-repos.sh      # Clonar todos los repos
 │   └── update-all-repos.sh     # Actualizar todos los repos
@@ -96,6 +111,285 @@ agendia-dev-scripts/
     ├── create-mf.sh            # Crear nuevo microfrontend
     └── create-ms.sh            # Crear nuevo microservicio
 ```
+
+---
+
+## 🛠️ Scripts de Setup
+
+Scripts automatizados para instalar y configurar servicios de infraestructura (Infisical, PostgreSQL, etc.).
+
+### 📋 Requisitos Previos
+
+- Linux (Ubuntu/Debian recomendado) o Windows
+- Acceso sudo/root (Linux) o permisos de administrador (Windows)
+- Conexión a internet
+- Docker y Docker Compose instalados
+- Repositorio `agendia-infra` disponible
+
+---
+
+### 🚀 Uso Rápido
+
+#### Linux/Mac (Bash)
+
+**Infisical:**
+```bash
+cd agendia-dev-scripts/setup/infisical
+chmod +x install.sh backup.sh clean.sh
+sudo ./install.sh
+```
+
+**PostgreSQL:**
+```bash
+cd agendia-dev-scripts/setup/postgres
+chmod +x install.sh backup.sh clean.sh
+sudo ./install.sh
+```
+
+#### Windows (PowerShell)
+
+**Infisical:**
+```powershell
+cd agendia-dev-scripts\setup\infisical
+.\install.ps1
+```
+
+**PostgreSQL:**
+```powershell
+cd agendia-dev-scripts\setup\postgres
+.\install.ps1
+```
+
+---
+
+### 📝 Configuración
+
+#### Archivos .env
+
+Los scripts **NO crean** archivos `.env` automáticamente. Debes crearlos manualmente:
+
+**Linux/Mac:**
+```bash
+# Para PostgreSQL
+cp agendia-infra/setup/postgres/.env.example agendia-infra/setup/postgres/.env.dev
+
+# Para Infisical
+cp agendia-infra/setup/infisical/.env.example agendia-infra/setup/infisical/.env.dev
+```
+
+**Windows:**
+```powershell
+# Para PostgreSQL
+Copy-Item agendia-infra\setup\postgres\.env.example agendia-infra\setup\postgres\.env.dev
+
+# Para Infisical
+Copy-Item agendia-infra\setup\infisical\.env.example agendia-infra\setup\infisical\.env.dev
+```
+
+#### Entornos
+
+Todos los scripts aceptan parámetro de entorno:
+- **Linux/Mac:** `--env ENTORNO`
+- **Windows:** `-Environment ENTORNO`
+
+Valores:
+- `local`: Desarrollo local
+- `dev`: Desarrollo compartido (default)
+- `staging`: Pre-producción
+- `prod`: Producción
+
+**Ejemplos:**
+```bash
+# Linux/Mac
+sudo ./install.sh --env prod
+```
+
+```powershell
+# Windows
+.\install.ps1 -Environment prod
+```
+
+---
+
+### 🔐 Infisical
+
+#### Instalación
+
+**Windows:**
+```powershell
+.\install.ps1 -Environment dev
+```
+
+**Linux:**
+```bash
+sudo ./install.sh --env dev
+```
+
+**Configuración:**
+- Usa archivo `docker-compose.{entorno}.yml` (default: `docker-compose.dev.yml`)
+- Logs guardados en: `logs/setup/infisical/`
+- Puerto: `localhost:5002`
+- Redis expuesto en: `localhost:5001`
+
+#### Limpieza
+
+**Windows:**
+```powershell
+.\clean.ps1 -Environment dev
+.\clean.ps1 -Environment dev -RemoveImages  # También eliminar imágenes
+.\clean.ps1 -Environment dev -RemoveData:$false  # Mantener datos locales
+```
+
+**Linux:**
+```bash
+./clean.sh --env dev
+./clean.sh --env dev --remove-images  # También eliminar imágenes
+./clean.sh --env dev --keep-data      # Mantener datos locales
+```
+
+**Qué elimina:**
+- Contenedores (agendia-infisical-backend, agendia-infisical-db, agendia-infisical-redis)
+- Volúmenes de Docker
+- Redes
+- Opcional: Imágenes de Docker
+- Opcional: Directorios de datos locales (data/, logs/, backups/)
+
+---
+
+### 🐘 PostgreSQL
+
+#### Instalación
+
+**Windows:**
+```powershell
+.\install.ps1 -Environment dev
+```
+
+**Linux:**
+```bash
+sudo ./install.sh --env dev
+```
+
+**Configuración:**
+- Usa archivo `docker-compose.{entorno}.yml` (default: `docker-compose.dev.yml`)
+- Logs guardados en: `logs/setup/postgres/`
+- Puerto: `localhost:5003`
+- Base de datos: `agendia_dev` (configurable en `.env.dev`)
+
+#### Limpieza
+
+**Windows:**
+```powershell
+.\clean.ps1 -Environment dev
+.\clean.ps1 -Environment dev -RemoveImages  # También eliminar imágenes
+.\clean.ps1 -Environment dev -RemoveData:$false  # Mantener datos locales
+```
+
+**Linux:**
+```bash
+./clean.sh --env dev
+./clean.sh --env dev --remove-images  # También eliminar imágenes
+./clean.sh --env dev --keep-data      # Mantener datos locales
+```
+
+**Qué elimina:**
+- Contenedores (agendia-postgres)
+- Volúmenes de Docker
+- Redes
+- Opcional: Imágenes de Docker
+- Opcional: Directorios de datos locales (data/postgres/, logs/, backups/)
+
+---
+
+### ✅ Checklist de Instalación
+
+#### Antes de Ejecutar install.sh/install.ps1
+
+**1. Requisitos del Sistema:**
+- [ ] Linux (Ubuntu/Debian recomendado) o Windows
+- [ ] Acceso sudo/root (Linux) o permisos de administrador (Windows)
+- [ ] Conexión a internet
+- [ ] Docker y Docker Compose instalados
+- [ ] Repositorio `agendia-infra` disponible
+
+**2. Preparar Archivos .env:**
+
+**PostgreSQL:**
+```bash
+# Copiar .env.example
+cp agendia-infra/setup/postgres/.env.example agendia-infra/setup/postgres/.env.dev
+
+# Editar y completar valores
+nano agendia-infra/setup/postgres/.env.dev
+```
+
+**Infisical:**
+```bash
+# Copiar .env.example (si existe) o crear manualmente
+# Ver agendia-infra/setup/infisical/.env.example como referencia
+```
+
+**3. Ejecutar Scripts:**
+
+Ver sección [Uso Rápido](#-uso-rápido) más arriba.
+
+---
+
+#### Después de la Instalación
+
+**Verificar Instalación:**
+
+**PostgreSQL:**
+```bash
+docker ps | grep agendia-postgres
+docker exec agendia-postgres pg_isready -U postgres
+```
+
+**Infisical:**
+```bash
+docker ps | grep agendia-infisical
+curl http://localhost:5002
+```
+
+**Verificar Backups Automáticos:**
+
+```bash
+# Verificar crontab (Linux)
+crontab -l | grep backup.sh
+
+# Verificar logs de backup
+tail -f agendia-infra/setup/postgres/backups/backup.log
+tail -f agendia-infra/setup/infisical/backups/backup.log
+```
+
+---
+
+#### Troubleshooting
+
+**Error: "No se encontró docker-compose.dev.yml"**
+- Verificar que `agendia-infra` esté en la ruta correcta
+- El script busca en:
+  - `../../agendia-infra/setup/{servicio}/`
+  - `$(pwd)/agendia-infra/setup/{servicio}/`
+  - `/opt/agendia/agendia-infra/setup/{servicio}/` (Linux)
+
+**Error: "Archivo .env no encontrado"**
+- Los scripts funcionan sin `.env` usando valores por defecto
+- Para producción, crear `.env.{entorno}` manualmente
+
+**Error: "Permission denied"**
+- Linux: Ejecutar con `sudo`
+- Verificar permisos: `chmod +x install.sh backup.sh clean.sh`
+- Windows: Ejecutar PowerShell como administrador si es necesario
+
+**Error: "Invalid key length" (Infisical)**
+- Verificar que `INFISICAL_ENCRYPTION_KEY` tenga exactamente 32 caracteres hexadecimales (16 bytes)
+- Generar nuevo: `openssl rand -hex 16`
+- Limpiar completamente: `.\clean.ps1 -Environment dev` (o `./clean.sh --env dev`) y reinstalar
+
+---
+
+**📚 Documentación completa:** Ver [Scripts de Setup](../../agendia-docs/docs/setup/scripts-setup.md)
 
 ---
 

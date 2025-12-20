@@ -7,6 +7,9 @@
 logs/
 *.log
 
+# Nota: Los scripts ahora trabajan directamente desde agendia-infra/setup/
+# No se generan directorios de instalación en agendia-dev-scripts
+
 # Archivos temporales del sistema
 .DS_Store
 Thumbs.db
