@@ -11,9 +11,11 @@
 #   --url URL              URL del servidor Infisical (default: http://localhost:5002)
 #   --domain DOMINIO       Dominio para producción (opcional)
 #   --env ENTORNO          Entorno de instalación: local, dev, staging, prod (default: dev)
-#   --skip-docker          Omitir instalación de Docker (si ya está instalado)
-#   --skip-nginx           Omitir instalación de Nginx (si ya está instalado)
+#   --skip-nginx           Omitir verificación de Nginx (si ya está instalado)
 #   --help                 Mostrar esta ayuda
+# 
+# Nota: Las dependencias del sistema (Docker, Docker Compose, etc.) deben
+#       instalarse previamente ejecutando: install-system-deps.sh
 # ============================================================================
 
 set -e
@@ -30,7 +32,6 @@ INFISICAL_DIR="/opt/infisical"
 INFISICAL_URL="http://localhost:5002"
 DOMAIN=""
 ENVIRONMENT="dev"  # local, dev, staging, prod
-SKIP_DOCKER=false
 SKIP_NGINX=false
 
 # Función para mostrar mensajes
@@ -61,9 +62,11 @@ Opciones:
   --url URL              URL del servidor Infisical (default: http://localhost:5002)
   --domain DOMINIO       Dominio para producción (ej: infisical.tu-dominio.com)
   --env ENTORNO          Entorno: local, dev, staging, prod (default: dev)
-  --skip-docker          Omitir instalación de Docker (si ya está instalado)
-  --skip-nginx           Omitir instalación de Nginx (si ya está instalado)
+  --skip-nginx           Omitir verificación de Nginx (si ya está instalado)
   --help                 Mostrar esta ayuda
+
+Nota: Las dependencias del sistema (Docker, Docker Compose, etc.) deben
+      instalarse previamente ejecutando: install-system-deps.sh
 
 Ejemplos:
   # Instalación básica (desarrollo)
@@ -75,8 +78,6 @@ Ejemplos:
   # Para producción con dominio
   $0 --env prod --domain infisical.tu-dominio.com
 
-  # Omitir instalación de Docker
-  $0 --skip-docker
 
 EOF
 }
@@ -91,10 +92,6 @@ while [[ $# -gt 0 ]]; do
         --domain)
             DOMAIN="$2"
             shift 2
-            ;;
-        --skip-docker)
-            SKIP_DOCKER=true
-            shift
             ;;
         --skip-nginx)
             SKIP_NGINX=true
@@ -138,59 +135,47 @@ fi
 echo ""
 
 # ============================================================================
-# Paso 1: Actualizar sistema
+# Paso 1: Verificar dependencias del sistema
 # ============================================================================
-info "📦 Paso 1: Actualizando sistema..."
-apt update -qq
-apt upgrade -y -qq
-success "Sistema actualizado"
+info "📦 Paso 1: Verificando dependencias del sistema..."
+info "   Nota: Las dependencias del sistema deben instalarse con install-system-deps.sh"
 echo ""
 
 # ============================================================================
-# Paso 2: Instalar Docker
+# Paso 2: Verificar Docker
 # ============================================================================
-if [ "$SKIP_DOCKER" = false ]; then
-    info "🐳 Paso 2: Instalando Docker..."
-    
-    if command -v docker &> /dev/null; then
-        warning "Docker ya está instalado: $(docker --version)"
+info "🐳 Paso 2: Verificando Docker..."
+if ! command -v docker &> /dev/null; then
+    error "Docker no está instalado."
+    error "Instala Docker ejecutando: install-system-deps.sh"
+    error "O instala Docker manualmente desde: https://docs.docker.com/get-docker/"
+    exit 1
+fi
+success "Docker encontrado: $(docker --version)"
+
+# Verificar que el usuario esté en el grupo docker (solo advertencia, no crítico)
+if [ -n "$SUDO_USER" ]; then
+    if groups "$SUDO_USER" | grep -q docker; then
+        success "Usuario $SUDO_USER está en el grupo docker"
     else
-        info "Descargando e instalando Docker..."
-        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-        sh /tmp/get-docker.sh
-        rm /tmp/get-docker.sh
-        success "Docker instalado: $(docker --version)"
-    fi
-    
-    # Agregar usuario actual al grupo docker
-    if [ -n "$SUDO_USER" ]; then
-        info "Agregando usuario $SUDO_USER al grupo docker..."
-        usermod -aG docker "$SUDO_USER"
-        success "Usuario agregado al grupo docker"
-    fi
-else
-    info "🐳 Paso 2: Omitiendo instalación de Docker (--skip-docker)"
-    if ! command -v docker &> /dev/null; then
-        error "Docker no está instalado. Ejecuta sin --skip-docker o instala Docker manualmente."
-        exit 1
+        warning "Usuario $SUDO_USER no está en el grupo docker"
+        warning "Ejecuta: sudo usermod -aG docker $SUDO_USER y luego cierra sesión y vuelve a iniciar sesión"
     fi
 fi
 echo ""
 
 # ============================================================================
-# Paso 3: Instalar Docker Compose
+# Paso 3: Verificar Docker Compose
 # ============================================================================
-info "📦 Paso 3: Instalando Docker Compose..."
+info "📦 Paso 3: Verificando Docker Compose..."
 
-if command -v docker-compose &> /dev/null; then
-    warning "Docker Compose ya está instalado: $(docker-compose --version)"
-else
-    info "Descargando Docker Compose..."
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
-        -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    success "Docker Compose instalado: $(docker-compose --version)"
+if ! command -v docker-compose &> /dev/null; then
+    error "Docker Compose no está instalado."
+    error "Instala Docker Compose ejecutando: install-system-deps.sh"
+    error "O instala Docker Compose manualmente desde: https://docs.docker.com/compose/install/"
+    exit 1
 fi
+success "Docker Compose encontrado: $(docker-compose --version)"
 echo ""
 
 # ============================================================================
@@ -361,13 +346,14 @@ echo ""
 if [ -n "$DOMAIN" ] && [ "$SKIP_NGINX" = false ]; then
     info "🌐 Paso 8: Configurando Nginx para dominio: $DOMAIN"
     
-    # Instalar Nginx
+    # Verificar Nginx
     if ! command -v nginx &> /dev/null; then
-        apt install -y nginx
-        success "Nginx instalado"
-    else
-        warning "Nginx ya está instalado"
+        error "Nginx no está instalado."
+        error "Instala Nginx ejecutando: install-system-deps.sh"
+        error "O instala Nginx manualmente: sudo apt install nginx"
+        exit 1
     fi
+    success "Nginx encontrado: $(nginx -v 2>&1)"
     
     # Crear configuración de Nginx
     cat > "/etc/nginx/sites-available/infisical" << EOF
@@ -397,9 +383,13 @@ EOF
         systemctl reload nginx
         success "Nginx configurado para $DOMAIN"
         
-        # Instalar Certbot y configurar SSL
+        # Verificar Certbot y configurar SSL
         info "Configurando SSL con Let's Encrypt..."
-        apt install -y certbot python3-certbot-nginx
+        if ! command -v certbot &> /dev/null; then
+            error "Certbot no está instalado."
+            error "Instala Certbot: sudo apt install certbot python3-certbot-nginx"
+            exit 1
+        fi
         certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@$DOMAIN --redirect
         
         # Actualizar URLs en .env para usar HTTPS
@@ -426,7 +416,7 @@ EOF
 fi
 
 # ============================================================================
-# Paso 8: Configurar firewall
+# Paso 9: Configurar firewall
 # ============================================================================
 info "🔒 Paso 9: Configurando firewall..."
 
@@ -451,6 +441,7 @@ if command -v ufw &> /dev/null; then
     success "Firewall configurado"
 else
     warning "UFW no está instalado. Considera instalarlo para mayor seguridad."
+    warning "Instala UFW: sudo apt install ufw"
 fi
 echo ""
 

@@ -4,17 +4,18 @@
 # Este script configura PostgreSQL usando Docker Compose en Windows
 # 
 # Uso:
-#   .\install.ps1 [-Environment ENTORNO] [-SkipDocker]
+#   .\install.ps1 [-Environment ENTORNO]
 #
 # Parámetros:
 #   -Environment      Entorno: local, dev, staging, prod (default: dev)
-#   -SkipDocker       Omitir verificación de Docker
 #   -Help             Mostrar ayuda
+# 
+# Nota: Las dependencias del sistema (Docker, Docker Compose, etc.) deben
+#       instalarse previamente ejecutando: install-system-deps.sh
 # ============================================================================
 
 param(
     [string]$Environment = "dev",
-    [switch]$SkipDocker,
     [switch]$Help
 )
 
@@ -46,11 +47,13 @@ if ($Help) {
     Write-Host @"
 Script de Instalación de PostgreSQL para Windows
 
-Uso: .\install.ps1 [-Environment ENTORNO] [-SkipDocker]
+Uso: .\install.ps1 [-Environment ENTORNO]
 
 Parámetros:
   -Environment      Entorno: local, dev, staging, prod (default: dev)
-  -SkipDocker       Omitir verificación de Docker
+
+Nota: Las dependencias del sistema (Docker, Docker Compose, etc.) deben
+      instalarse previamente ejecutando: install-system-deps.sh
 
 Ejemplos:
   .\install.ps1                    # Dev (default)
@@ -112,26 +115,27 @@ Write-Info "   Entorno: $Environment"
 Write-Host ""
 
 # Verificar Docker
-if (-not $SkipDocker) {
-    Write-Info "🐳 Verificando Docker..."
-    try {
-        $dockerVersion = docker --version
-        Write-Success "Docker encontrado: $dockerVersion"
-    } catch {
-        Write-Error "Docker no está instalado o no está en el PATH"
-        Write-Error "Instala Docker Desktop para Windows: https://www.docker.com/products/docker-desktop"
-        exit 1
-    }
-
-    try {
-        $composeVersion = docker-compose --version
-        Write-Success "Docker Compose encontrado: $composeVersion"
-    } catch {
-        Write-Error "Docker Compose no está instalado o no está en el PATH"
-        exit 1
-    }
-    Write-Host ""
+Write-Info "🐳 Verificando Docker..."
+try {
+    $dockerVersion = docker --version
+    Write-Success "Docker encontrado: $dockerVersion"
+} catch {
+    Write-Error "Docker no está instalado o no está en el PATH"
+    Write-Error "Instala Docker Desktop para Windows: https://www.docker.com/products/docker-desktop"
+    Write-Info "   Nota: Las dependencias del sistema deben instalarse con install-system-deps.sh"
+    exit 1
 }
+
+Write-Info "📦 Verificando Docker Compose..."
+try {
+    $composeVersion = docker-compose --version
+    Write-Success "Docker Compose encontrado: $composeVersion"
+} catch {
+    Write-Error "Docker Compose no está instalado o no está en el PATH"
+    Write-Info "   Nota: Las dependencias del sistema deben instalarse con install-system-deps.sh"
+    exit 1
+}
+Write-Host ""
 
 # Cambiar al directorio de configuración
 Set-Location $POSTGRES_CONFIG_DIR

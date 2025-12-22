@@ -9,8 +9,10 @@
 #
 # Opciones:
 #   --env ENTORNO          Entorno de instalación: local, dev, staging, prod (default: dev)
-#   --skip-docker          Omitir instalación de Docker (si ya está instalado)
 #   --help                 Mostrar esta ayuda
+# 
+# Nota: Las dependencias del sistema (Docker, Docker Compose, etc.) deben
+#       instalarse previamente ejecutando: install-system-deps.sh
 # ============================================================================
 
 set -e
@@ -25,7 +27,6 @@ NC='\033[0m' # No Color
 # Variables de configuración
 POSTGRES_DIR="/opt/postgres"
 ENVIRONMENT="dev"  # local, dev, staging, prod
-SKIP_DOCKER=false
 
 # Función para mostrar mensajes
 info() {
@@ -53,8 +54,10 @@ Uso: $0 [opciones]
 
 Opciones:
   --env ENTORNO          Entorno: local, dev, staging, prod (default: dev)
-  --skip-docker          Omitir instalación de Docker (si ya está instalado)
   --help                 Mostrar esta ayuda
+
+Nota: Las dependencias del sistema (Docker, Docker Compose, etc.) deben
+      instalarse previamente ejecutando: install-system-deps.sh
 
 Ejemplos:
   # Instalación básica (desarrollo)
@@ -66,19 +69,12 @@ Ejemplos:
   # Para producción
   $0 --env prod
 
-  # Omitir instalación de Docker
-  $0 --skip-docker
-
 EOF
 }
 
 # Parsear argumentos
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --skip-docker)
-            SKIP_DOCKER=true
-            shift
-            ;;
         --env)
             ENVIRONMENT="$2"
             shift 2
@@ -113,59 +109,47 @@ info "   Entorno: $ENVIRONMENT"
 echo ""
 
 # ============================================================================
-# Paso 1: Actualizar sistema
+# Paso 1: Verificar dependencias del sistema
 # ============================================================================
-info "📦 Paso 1: Actualizando sistema..."
-apt update -qq
-apt upgrade -y -qq
-success "Sistema actualizado"
+info "📦 Paso 1: Verificando dependencias del sistema..."
+info "   Nota: Las dependencias del sistema deben instalarse con install-system-deps.sh"
 echo ""
 
 # ============================================================================
-# Paso 2: Instalar Docker
+# Paso 2: Verificar Docker
 # ============================================================================
-if [ "$SKIP_DOCKER" = false ]; then
-    info "🐳 Paso 2: Instalando Docker..."
-    
-    if command -v docker &> /dev/null; then
-        warning "Docker ya está instalado: $(docker --version)"
+info "🐳 Paso 2: Verificando Docker..."
+if ! command -v docker &> /dev/null; then
+    error "Docker no está instalado."
+    error "Instala Docker ejecutando: install-system-deps.sh"
+    error "O instala Docker manualmente desde: https://docs.docker.com/get-docker/"
+    exit 1
+fi
+success "Docker encontrado: $(docker --version)"
+
+# Verificar que el usuario esté en el grupo docker (solo advertencia, no crítico)
+if [ -n "$SUDO_USER" ]; then
+    if groups "$SUDO_USER" | grep -q docker; then
+        success "Usuario $SUDO_USER está en el grupo docker"
     else
-        info "Descargando e instalando Docker..."
-        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-        sh /tmp/get-docker.sh
-        rm /tmp/get-docker.sh
-        success "Docker instalado: $(docker --version)"
-    fi
-    
-    # Agregar usuario actual al grupo docker
-    if [ -n "$SUDO_USER" ]; then
-        info "Agregando usuario $SUDO_USER al grupo docker..."
-        usermod -aG docker "$SUDO_USER"
-        success "Usuario agregado al grupo docker"
-    fi
-else
-    info "🐳 Paso 2: Omitiendo instalación de Docker (--skip-docker)"
-    if ! command -v docker &> /dev/null; then
-        error "Docker no está instalado. Ejecuta sin --skip-docker o instala Docker manualmente."
-        exit 1
+        warning "Usuario $SUDO_USER no está en el grupo docker"
+        warning "Ejecuta: sudo usermod -aG docker $SUDO_USER y luego cierra sesión y vuelve a iniciar sesión"
     fi
 fi
 echo ""
 
 # ============================================================================
-# Paso 3: Instalar Docker Compose
+# Paso 3: Verificar Docker Compose
 # ============================================================================
-info "📦 Paso 3: Instalando Docker Compose..."
+info "📦 Paso 3: Verificando Docker Compose..."
 
-if command -v docker-compose &> /dev/null; then
-    warning "Docker Compose ya está instalado: $(docker-compose --version)"
-else
-    info "Descargando Docker Compose..."
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
-        -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    success "Docker Compose instalado: $(docker-compose --version)"
+if ! command -v docker-compose &> /dev/null; then
+    error "Docker Compose no está instalado."
+    error "Instala Docker Compose ejecutando: install-system-deps.sh"
+    error "O instala Docker Compose manualmente desde: https://docs.docker.com/compose/install/"
+    exit 1
 fi
+success "Docker Compose encontrado: $(docker-compose --version)"
 echo ""
 
 # ============================================================================
@@ -334,27 +318,26 @@ echo ""
 # ============================================================================
 info "🔒 Paso 7: Configurando firewall..."
 
-# Instalar UFW si no está instalado
+# Verificar UFW
 if ! command -v ufw &> /dev/null; then
-    info "Instalando UFW..."
-    apt install -y ufw
-    success "UFW instalado"
-fi
-
-# Permitir SSH (importante hacerlo primero)
-ufw allow 22/tcp > /dev/null 2>&1 || true
+    warning "UFW no está instalado. Considera instalarlo para mayor seguridad."
+    warning "Instala UFW: sudo apt install ufw"
+else
+    # Permitir SSH (importante hacerlo primero)
+    ufw allow 22/tcp > /dev/null 2>&1 || true
 
     # Permitir PostgreSQL (solo si no es local)
     if [ "$ENVIRONMENT" != "local" ]; then
         ufw allow 5003/tcp > /dev/null 2>&1 || true
     fi
 
-# Habilitar firewall si no está habilitado
-if ! ufw status | grep -q "Status: active"; then
-    echo "y" | ufw enable > /dev/null 2>&1 || true
-fi
+    # Habilitar firewall si no está habilitado
+    if ! ufw status | grep -q "Status: active"; then
+        echo "y" | ufw enable > /dev/null 2>&1 || true
+    fi
 
-success "Firewall configurado"
+    success "Firewall configurado"
+fi
 echo ""
 
 # ============================================================================
