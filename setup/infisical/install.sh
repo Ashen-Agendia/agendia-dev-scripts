@@ -190,24 +190,48 @@ info "📁 Buscando directorio de configuración..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORIGINAL_PWD="$(pwd)"
 
+# Calcular posibles rutas a la raíz del proyecto
+# Desde agendia-dev-scripts/setup/infisical, subir 3 niveles para llegar a la raíz
+PROJECT_ROOT=""
+if [ -d "$SCRIPT_DIR/../../.." ]; then
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+fi
+
 # Buscar directorio agendia-infra/setup/infisical
 INFISICAL_CONFIG_DIR=""
-if [ -f "$SCRIPT_DIR/../../agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$SCRIPT_DIR/../../agendia-infra/setup/infisical/docker-compose.yml" ]; then
-    INFISICAL_CONFIG_DIR="$SCRIPT_DIR/../../agendia-infra/setup/infisical"
-elif [ -f "$ORIGINAL_PWD/agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/agendia-infra/setup/infisical/docker-compose.yml" ]; then
-    INFISICAL_CONFIG_DIR="$ORIGINAL_PWD/agendia-infra/setup/infisical"
-elif [ -f "$ORIGINAL_PWD/../agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/../agendia-infra/setup/infisical/docker-compose.yml" ]; then
-    INFISICAL_CONFIG_DIR="$ORIGINAL_PWD/../agendia-infra/setup/infisical"
-elif [ -f "/opt/agendia/agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "/opt/agendia/agendia-infra/setup/infisical/docker-compose.yml" ]; then
-    INFISICAL_CONFIG_DIR="/opt/agendia/agendia-infra/setup/infisical"
-else
+SEARCH_PATHS=()
+
+# 1. Desde la raíz del proyecto (si se calculó)
+if [ -n "$PROJECT_ROOT" ]; then
+    SEARCH_PATHS+=("$PROJECT_ROOT/agendia-infra/setup/infisical")
+fi
+
+# 2. Desde el directorio del script (relativo)
+SEARCH_PATHS+=("$SCRIPT_DIR/../../agendia-infra/setup/infisical")
+
+# 3. Desde el directorio original de trabajo
+SEARCH_PATHS+=("$ORIGINAL_PWD/agendia-infra/setup/infisical")
+SEARCH_PATHS+=("$ORIGINAL_PWD/../agendia-infra/setup/infisical")
+SEARCH_PATHS+=("$ORIGINAL_PWD/../../agendia-infra/setup/infisical")
+
+# 4. Ubicación estándar
+SEARCH_PATHS+=("/opt/agendia/agendia-infra/setup/infisical")
+
+# Buscar en todas las rutas
+for search_path in "${SEARCH_PATHS[@]}"; do
+    if [ -f "$search_path/docker-compose.dev.yml" ] || [ -f "$search_path/docker-compose.yml" ]; then
+        INFISICAL_CONFIG_DIR="$(cd "$search_path" && pwd)"
+        break
+    fi
+done
+
+if [ -z "$INFISICAL_CONFIG_DIR" ]; then
     error "No se encontró agendia-infra/setup/infisical/docker-compose*.yml"
     error "Asegúrate de que el repositorio agendia-infra esté disponible"
     error "Buscado en:"
-    error "  - $SCRIPT_DIR/../../agendia-infra/setup/infisical"
-    error "  - $ORIGINAL_PWD/agendia-infra/setup/infisical"
-    error "  - $ORIGINAL_PWD/../agendia-infra/setup/infisical"
-    error "  - /opt/agendia/agendia-infra/setup/infisical"
+    for search_path in "${SEARCH_PATHS[@]}"; do
+        error "  - $search_path"
+    done
     exit 1
 fi
 
