@@ -100,6 +100,12 @@ fi
 # Verificar que se ejecuta como root o con sudo
 if [ "$EUID" -ne 0 ]; then
     error "Este script debe ejecutarse como root o con sudo"
+    error ""
+    error "Ejecuta el script con uno de estos comandos:"
+    error "  sudo ./install.sh"
+    error "  sudo bash install.sh"
+    error ""
+    error "NOTA: No uses 'sudo install.sh' (sin ./) porque no encontrará el script"
     exit 1
 fi
 
@@ -157,6 +163,10 @@ echo ""
 # ============================================================================
 info "📁 Paso 4: Configurando directorio de PostgreSQL..."
 
+# Obtener ruta del script actual ANTES de cambiar de directorio
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORIGINAL_PWD="$(pwd)"
+
 # Crear directorio (específico por entorno si no es local)
 if [ "$ENVIRONMENT" = "local" ]; then
     POSTGRES_DIR="/opt/postgres"
@@ -170,19 +180,24 @@ cd "$POSTGRES_DIR"
 # Crear subdirectorios
 mkdir -p data/postgres scripts backups
 
-# Obtener ruta del script actual y buscar archivos de configuración
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Buscar archivos de configuración en agendia-infra/setup/postgres
 POSTGRES_CONFIG_DIR=""
 if [ -f "$SCRIPT_DIR/../../agendia-infra/setup/postgres/docker-compose.dev.yml" ] || [ -f "$SCRIPT_DIR/../../agendia-infra/setup/postgres/docker-compose.yml" ]; then
     POSTGRES_CONFIG_DIR="$SCRIPT_DIR/../../agendia-infra/setup/postgres"
-elif [ -f "$(pwd)/agendia-infra/setup/postgres/docker-compose.dev.yml" ] || [ -f "$(pwd)/agendia-infra/setup/postgres/docker-compose.yml" ]; then
-    POSTGRES_CONFIG_DIR="$(pwd)/agendia-infra/setup/postgres"
+elif [ -f "$ORIGINAL_PWD/agendia-infra/setup/postgres/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/agendia-infra/setup/postgres/docker-compose.yml" ]; then
+    POSTGRES_CONFIG_DIR="$ORIGINAL_PWD/agendia-infra/setup/postgres"
+elif [ -f "$ORIGINAL_PWD/../agendia-infra/setup/postgres/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/../agendia-infra/setup/postgres/docker-compose.yml" ]; then
+    POSTGRES_CONFIG_DIR="$ORIGINAL_PWD/../agendia-infra/setup/postgres"
 elif [ -f "/opt/agendia/agendia-infra/setup/postgres/docker-compose.dev.yml" ] || [ -f "/opt/agendia/agendia-infra/setup/postgres/docker-compose.yml" ]; then
     POSTGRES_CONFIG_DIR="/opt/agendia/agendia-infra/setup/postgres"
 else
     error "No se encontró agendia-infra/setup/postgres/docker-compose.dev.yml ni docker-compose.yml"
     error "Asegúrate de que el repositorio agendia-infra esté disponible"
+    error "Buscado en:"
+    error "  - $SCRIPT_DIR/../../agendia-infra/setup/postgres"
+    error "  - $ORIGINAL_PWD/agendia-infra/setup/postgres"
+    error "  - $ORIGINAL_PWD/../agendia-infra/setup/postgres"
+    error "  - /opt/agendia/agendia-infra/setup/postgres"
     exit 1
 fi
 

@@ -122,6 +122,12 @@ fi
 # Verificar que se ejecuta como root o con sudo
 if [ "$EUID" -ne 0 ]; then
     error "Este script debe ejecutarse como root o con sudo"
+    error ""
+    error "Ejecuta el script con uno de estos comandos:"
+    error "  sudo ./install.sh"
+    error "  sudo bash install.sh"
+    error ""
+    error "NOTA: No uses 'sudo install.sh' (sin ./) porque no encontrará el script"
     exit 1
 fi
 
@@ -183,6 +189,10 @@ echo ""
 # ============================================================================
 info "📁 Paso 4: Configurando directorio de Infisical..."
 
+# Obtener ruta del script actual ANTES de cambiar de directorio
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORIGINAL_PWD="$(pwd)"
+
 # Crear directorio (específico por entorno si no es local)
 # Para local, usar /opt/infisical
 # Para otros entornos, usar /opt/infisical-{entorno}
@@ -197,23 +207,28 @@ cd "$INFISICAL_DIR"
 
 # Crear subdirectorios
 mkdir -p data/postgres logs backups
-
-# Obtener ruta del script actual y buscar archivos de configuración
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Buscar archivos de configuración en agendia-infra/setup/infisical
 # Primero intentar desde el directorio del script (si está en agendia-infra)
-# Luego intentar desde la raíz del proyecto
+# Luego intentar desde el directorio original de trabajo
+# Finalmente intentar desde ubicaciones estándar
 INFISICAL_CONFIG_DIR=""
 # Buscar cualquier archivo docker-compose*.yml
 if [ -f "$SCRIPT_DIR/../../agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$SCRIPT_DIR/../../agendia-infra/setup/infisical/docker-compose.yml" ]; then
     INFISICAL_CONFIG_DIR="$SCRIPT_DIR/../../agendia-infra/setup/infisical"
-elif [ -f "$(pwd)/agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$(pwd)/agendia-infra/setup/infisical/docker-compose.yml" ]; then
-    INFISICAL_CONFIG_DIR="$(pwd)/agendia-infra/setup/infisical"
+elif [ -f "$ORIGINAL_PWD/agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/agendia-infra/setup/infisical/docker-compose.yml" ]; then
+    INFISICAL_CONFIG_DIR="$ORIGINAL_PWD/agendia-infra/setup/infisical"
+elif [ -f "$ORIGINAL_PWD/../agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/../agendia-infra/setup/infisical/docker-compose.yml" ]; then
+    INFISICAL_CONFIG_DIR="$ORIGINAL_PWD/../agendia-infra/setup/infisical"
 elif [ -f "/opt/agendia/agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "/opt/agendia/agendia-infra/setup/infisical/docker-compose.yml" ]; then
     INFISICAL_CONFIG_DIR="/opt/agendia/agendia-infra/setup/infisical"
 else
     error "No se encontró agendia-infra/setup/infisical/docker-compose*.yml"
     error "Asegúrate de que el repositorio agendia-infra esté disponible"
+    error "Buscado en:"
+    error "  - $SCRIPT_DIR/../../agendia-infra/setup/infisical"
+    error "  - $ORIGINAL_PWD/agendia-infra/setup/infisical"
+    error "  - $ORIGINAL_PWD/../agendia-infra/setup/infisical"
+    error "  - /opt/agendia/agendia-infra/setup/infisical"
     exit 1
 fi
 
