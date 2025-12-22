@@ -2,7 +2,8 @@
 # ============================================================================
 # Script de Instalación Automática de PostgreSQL en Linux
 # ============================================================================
-# Este script instala y configura PostgreSQL usando Docker Compose
+# Este script instala y configura PostgreSQL trabajando directamente
+# desde agendia-infra/setup/postgres
 # 
 # Uso:
 #   ./install.sh [opciones]
@@ -25,7 +26,6 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Variables de configuración
-POSTGRES_DIR="/opt/postgres"
 ENVIRONMENT="dev"  # local, dev, staging, prod
 
 # Función para mostrar mensajes
@@ -110,7 +110,6 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 info "🚀 Iniciando instalación de PostgreSQL..."
-info "   Directorio: $POSTGRES_DIR"
 info "   Entorno: $ENVIRONMENT"
 echo ""
 
@@ -159,28 +158,15 @@ success "Docker Compose encontrado: $(docker-compose --version)"
 echo ""
 
 # ============================================================================
-# Paso 4: Crear directorio y copiar archivos
+# Paso 4: Buscar y cambiar al directorio de agendia-infra
 # ============================================================================
-info "📁 Paso 4: Configurando directorio de PostgreSQL..."
+info "📁 Buscando directorio de configuración..."
 
-# Obtener ruta del script actual ANTES de cambiar de directorio
+# Obtener ruta del script actual
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORIGINAL_PWD="$(pwd)"
 
-# Crear directorio (específico por entorno si no es local)
-if [ "$ENVIRONMENT" = "local" ]; then
-    POSTGRES_DIR="/opt/postgres"
-else
-    POSTGRES_DIR="/opt/postgres-$ENVIRONMENT"
-fi
-
-mkdir -p "$POSTGRES_DIR"
-cd "$POSTGRES_DIR"
-
-# Crear subdirectorios
-mkdir -p data/postgres scripts backups
-
-# Buscar archivos de configuración en agendia-infra/setup/postgres
+# Buscar directorio agendia-infra/setup/postgres
 POSTGRES_CONFIG_DIR=""
 if [ -f "$SCRIPT_DIR/../../agendia-infra/setup/postgres/docker-compose.dev.yml" ] || [ -f "$SCRIPT_DIR/../../agendia-infra/setup/postgres/docker-compose.yml" ]; then
     POSTGRES_CONFIG_DIR="$SCRIPT_DIR/../../agendia-infra/setup/postgres"
@@ -201,6 +187,21 @@ else
     exit 1
 fi
 
+# Cambiar al directorio de configuración
+cd "$POSTGRES_CONFIG_DIR"
+success "Trabajando desde: $POSTGRES_CONFIG_DIR"
+echo ""
+
+# Crear subdirectorios necesarios si no existen
+info "📁 Verificando subdirectorios necesarios..."
+mkdir -p data/postgres scripts backups
+success "Subdirectorios verificados"
+
+# ============================================================================
+# Verificar archivos de configuración
+# ============================================================================
+info "📋 Verificando archivos de configuración..."
+
 # Determinar archivo docker-compose según entorno
 case "$ENVIRONMENT" in
     "local")
@@ -220,76 +221,41 @@ case "$ENVIRONMENT" in
         ;;
 esac
 
-# Verificar si existe el archivo, si no usar docker-compose.dev.yml como fallback
-if [ ! -f "$POSTGRES_CONFIG_DIR/$COMPOSE_FILE" ]; then
-    warning "No se encontró $COMPOSE_FILE, usando docker-compose.dev.yml como fallback"
-    COMPOSE_FILE="docker-compose.dev.yml"
-    if [ ! -f "$POSTGRES_CONFIG_DIR/$COMPOSE_FILE" ] && [ ! -f "$POSTGRES_CONFIG_DIR/docker-compose.yml" ]; then
-        error "No se encontró ningún archivo docker-compose válido en $POSTGRES_CONFIG_DIR"
-        exit 1
-    fi
-fi
-
-# Copiar archivos de configuración
-info "Copiando archivos de configuración desde $POSTGRES_CONFIG_DIR..."
-info "Usando archivo docker-compose: $COMPOSE_FILE"
-
-if [ -f "$POSTGRES_CONFIG_DIR/$COMPOSE_FILE" ]; then
-    cp "$POSTGRES_CONFIG_DIR/$COMPOSE_FILE" "$POSTGRES_DIR/docker-compose.dev.yml"
-    success "$COMPOSE_FILE copiado como docker-compose.dev.yml"
-elif [ -f "$POSTGRES_CONFIG_DIR/docker-compose.yml" ]; then
-    cp "$POSTGRES_CONFIG_DIR/docker-compose.yml" "$POSTGRES_DIR/docker-compose.dev.yml"
-    success "docker-compose.yml copiado como docker-compose.dev.yml"
-else
+# Verificar archivo docker-compose
+if [ ! -f "$COMPOSE_FILE" ] && [ ! -f "docker-compose.yml" ]; then
     error "No se encontró archivo docker-compose en $POSTGRES_CONFIG_DIR"
+    error "Asegúrate de que existe $COMPOSE_FILE o docker-compose.yml"
     exit 1
 fi
 
-# Verificar y copiar archivo .env según entorno
+# Usar docker-compose.yml como fallback si no existe el específico
+if [ ! -f "$COMPOSE_FILE" ]; then
+    COMPOSE_FILE="docker-compose.yml"
+    warning "Usando docker-compose.yml como fallback"
+fi
+
+success "Archivo docker-compose encontrado: $COMPOSE_FILE"
+
+# Verificar archivo .env según entorno
 ENV_FILE=".env.$ENVIRONMENT"
 if [ "$ENVIRONMENT" = "local" ]; then
     ENV_FILE=".env"
 fi
 
-# Intentar copiar .env desde el directorio de configuración
-if [ -f "$POSTGRES_CONFIG_DIR/$ENV_FILE" ]; then
-    cp "$POSTGRES_CONFIG_DIR/$ENV_FILE" "$POSTGRES_DIR/$ENV_FILE"
-    success "Archivo $ENV_FILE copiado desde $POSTGRES_CONFIG_DIR"
-elif [ -f "$POSTGRES_DIR/$ENV_FILE" ]; then
-    info "Archivo $ENV_FILE ya existe en $POSTGRES_DIR"
+if [ -f "$ENV_FILE" ]; then
+    success "Archivo $ENV_FILE encontrado"
 else
     warning "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
-    warning "Puedes crear el archivo manualmente en: $POSTGRES_DIR/$ENV_FILE"
+    warning "Puedes crear el archivo manualmente en: $POSTGRES_CONFIG_DIR/$ENV_FILE"
 fi
 
-# Copiar scripts SQL
-if [ -d "$POSTGRES_CONFIG_DIR/../db/scripts" ]; then
-    cp "$POSTGRES_CONFIG_DIR/../db/scripts/"*.sql "$POSTGRES_DIR/scripts/" 2>/dev/null || true
-    if [ -n "$(ls -A $POSTGRES_DIR/scripts/*.sql 2>/dev/null)" ]; then
-        success "Scripts SQL copiados"
+# Copiar scripts SQL desde db-scripts si existen
+if [ -d "$POSTGRES_CONFIG_DIR/../../db-scripts" ]; then
+    cp "$POSTGRES_CONFIG_DIR/../../db-scripts/"*.sql "$POSTGRES_CONFIG_DIR/scripts/" 2>/dev/null || true
+    if [ -n "$(ls -A $POSTGRES_CONFIG_DIR/scripts/*.sql 2>/dev/null)" ]; then
+        success "Scripts SQL copiados a scripts/"
     fi
 fi
-
-# Copiar script de backup si existe
-if [ -f "$SCRIPT_DIR/backup.sh" ]; then
-    cp "$SCRIPT_DIR/backup.sh" "$POSTGRES_DIR/"
-    chmod +x "$POSTGRES_DIR/backup.sh"
-    success "backup.sh copiado"
-fi
-
-# Cambiar propietario si hay un usuario sudo
-if [ -n "$SUDO_USER" ]; then
-    chown -R "$SUDO_USER:$SUDO_USER" "$POSTGRES_DIR"
-    success "Permisos configurados para usuario $SUDO_USER"
-fi
-
-success "Directorio configurado: $POSTGRES_DIR"
-echo ""
-
-# ============================================================================
-# Paso 5: Configuración completada
-# ============================================================================
-success "Configuración de directorios completada"
 echo ""
 
 # ============================================================================
@@ -297,26 +263,26 @@ echo ""
 # ============================================================================
 info "🚀 Paso 6: Iniciando PostgreSQL..."
 
-cd "$POSTGRES_DIR"
-
-# Cambiar a usuario no-root si es posible
+# Determinar argumentos de docker-compose
+COMPOSE_ARGS="-f $COMPOSE_FILE"
 ENV_FILE_ARG=""
-if [ "$ENVIRONMENT" = "local" ]; then
-    if [ -f ".env" ]; then
-        ENV_FILE_ARG="--env-file .env"
-    fi
-else
-    if [ -f ".env.$ENVIRONMENT" ]; then
-        ENV_FILE_ARG="--env-file .env.$ENVIRONMENT"
-    fi
+if [ -f "$ENV_FILE" ]; then
+    ENV_FILE_ARG="--env-file $ENV_FILE"
+    COMPOSE_ARGS="$COMPOSE_ARGS $ENV_FILE_ARG"
 fi
 
+info "Usando archivo docker-compose: $COMPOSE_FILE"
+if [ -n "$ENV_FILE_ARG" ]; then
+    info "Usando archivo .env: $ENV_FILE"
+fi
+
+# Cambiar a usuario no-root si es posible
 if [ -n "$SUDO_USER" ]; then
-    sudo -u "$SUDO_USER" docker-compose -f docker-compose.dev.yml pull -q
-    sudo -u "$SUDO_USER" docker-compose -f docker-compose.dev.yml up -d
+    sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS pull -q
+    sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS up -d
 else
-    docker-compose -f docker-compose.dev.yml pull -q
-    docker-compose -f docker-compose.dev.yml up -d
+    docker-compose $COMPOSE_ARGS pull -q
+    docker-compose $COMPOSE_ARGS up -d
 fi
 
 # Esperar a que el servicio inicie
@@ -324,19 +290,19 @@ info "Esperando a que PostgreSQL inicie..."
 sleep 10
 
 # Verificar estado
-if docker-compose -f docker-compose.dev.yml ps | grep -q "Up"; then
+if docker-compose $COMPOSE_ARGS ps | grep -q "Up"; then
     success "PostgreSQL iniciado correctamente"
 else
     error "Error al iniciar PostgreSQL. Revisa los logs:"
-    docker-compose -f docker-compose.dev.yml logs --tail=50
+    docker-compose $COMPOSE_ARGS logs --tail=50
     exit 1
 fi
 echo ""
 
 # ============================================================================
-# Paso 7: Configurar firewall
+# Configurar firewall
 # ============================================================================
-info "🔒 Paso 7: Configurando firewall..."
+info "🔒 Configurando firewall..."
 
 # Verificar UFW
 if ! command -v ufw &> /dev/null; then
@@ -361,13 +327,14 @@ fi
 echo ""
 
 # ============================================================================
-# Paso 8: Configurar backup automático
+# Configurar backup automático
 # ============================================================================
-info "💾 Paso 8: Configurando backup automático..."
+info "💾 Configurando backup automático..."
 
-if [ -f "$POSTGRES_DIR/backup.sh" ]; then
+if [ -f "backup.sh" ]; then
+    chmod +x backup.sh
     # Agregar a crontab para backup diario a las 2 AM
-    CRON_JOB="0 2 * * * cd $POSTGRES_DIR && ./backup.sh --env $ENVIRONMENT >> $POSTGRES_DIR/backup.log 2>&1"
+    CRON_JOB="0 2 * * * cd $POSTGRES_CONFIG_DIR && ./backup.sh --env $ENVIRONMENT >> $POSTGRES_CONFIG_DIR/backup.log 2>&1"
     
     if [ -n "$SUDO_USER" ]; then
         (crontab -u "$SUDO_USER" -l 2>/dev/null | grep -v "backup.sh"; echo "$CRON_JOB") | crontab -u "$SUDO_USER" -
@@ -382,30 +349,17 @@ fi
 echo ""
 
 # ============================================================================
-# Paso 9: Verificación final
+# Verificación final
 # ============================================================================
-info "✅ Paso 9: Verificando instalación..."
-
-cd "$POSTGRES_DIR"
+info "✅ Verificando instalación..."
 
 # Verificar contenedores
-ENV_FILE_ARG=""
-if [ "$ENVIRONMENT" = "local" ]; then
-    if [ -f ".env" ]; then
-        ENV_FILE_ARG="--env-file .env"
-    fi
-else
-    if [ -f ".env.$ENVIRONMENT" ]; then
-        ENV_FILE_ARG="--env-file .env.$ENVIRONMENT"
-    fi
-fi
-
-if docker-compose -f docker-compose.dev.yml ps | grep -q "Up"; then
+if docker-compose $COMPOSE_ARGS ps | grep -q "Up"; then
     success "Contenedores corriendo"
-    docker-compose -f docker-compose.dev.yml ps
+    docker-compose $COMPOSE_ARGS ps
 else
     error "Algunos contenedores no están corriendo"
-    docker-compose -f docker-compose.dev.yml ps
+    docker-compose $COMPOSE_ARGS ps
     exit 1
 fi
 
@@ -416,7 +370,7 @@ sleep 5
 if docker exec agendia-postgres pg_isready -U postgres > /dev/null 2>&1; then
     success "PostgreSQL responde correctamente"
 else
-    warning "PostgreSQL no responde. Revisa los logs: docker-compose -f docker-compose.dev.yml logs postgres"
+    warning "PostgreSQL no responde. Revisa los logs: docker-compose -f $COMPOSE_FILE logs postgres"
 fi
 
 echo ""
@@ -446,20 +400,24 @@ echo "   - Cada entorno debe tener sus propios secretos en Infisical"
 echo "   - Ver: agendia-docs/docs/desarrollo/gestion-secretos.md"
 echo ""
 info "🔐 Archivos importantes:"
-echo "   - Archivo .env: $POSTGRES_DIR/$ENV_FILE"
-echo "   - Logs: docker-compose -f docker-compose.dev.yml logs postgres"
-echo "   - Scripts SQL: $POSTGRES_DIR/scripts/"
-echo "   - Backups: $POSTGRES_DIR/backups/"
+ENV_FILE=".env.$ENVIRONMENT"
+if [ "$ENVIRONMENT" = "local" ]; then
+    ENV_FILE=".env"
+fi
+echo "   - Directorio de trabajo: $POSTGRES_CONFIG_DIR"
+echo "   - Archivo .env: $POSTGRES_CONFIG_DIR/$ENV_FILE"
+echo "   - Logs: docker-compose -f $COMPOSE_FILE logs postgres"
+echo "   - Scripts SQL: $POSTGRES_CONFIG_DIR/scripts/"
+echo "   - Backups: $POSTGRES_CONFIG_DIR/backups/"
 echo ""
 info "📚 Comandos útiles:"
-echo "   - Ver logs: cd $POSTGRES_DIR && docker-compose -f docker-compose.dev.yml logs -f"
-echo "   - Reiniciar: cd $POSTGRES_DIR && docker-compose -f docker-compose.dev.yml restart"
-echo "   - Detener: cd $POSTGRES_DIR && docker-compose -f docker-compose.dev.yml down"
-echo "   - Backup manual: cd $POSTGRES_DIR && ./backup.sh"
+echo "   - Ver logs: cd $POSTGRES_CONFIG_DIR && docker-compose -f $COMPOSE_FILE logs -f"
+echo "   - Reiniciar: cd $POSTGRES_CONFIG_DIR && docker-compose -f $COMPOSE_FILE restart"
+echo "   - Detener: cd $POSTGRES_CONFIG_DIR && docker-compose -f $COMPOSE_FILE down"
+echo "   - Backup manual: cd $POSTGRES_CONFIG_DIR && ./backup.sh"
 echo ""
 info "📖 Documentación:"
 echo "   - Ver: agendia-docs/docs/setup/postgres-linux.md"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-

@@ -2,7 +2,8 @@
 # ============================================================================
 # Script de Instalación Automática de Infisical en Linux
 # ============================================================================
-# Este script instala y configura Infisical self-hosted en un servidor Linux
+# Este script instala y configura Infisical self-hosted trabajando directamente
+# desde agendia-infra/setup/infisical
 # 
 # Uso:
 #   ./install.sh [opciones]
@@ -28,7 +29,6 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Variables de configuración
-INFISICAL_DIR="/opt/infisical"
 INFISICAL_URL="http://localhost:5002"
 DOMAIN=""
 ENVIRONMENT="dev"  # local, dev, staging, prod
@@ -77,7 +77,6 @@ Ejemplos:
 
   # Para producción con dominio
   $0 --env prod --domain infisical.tu-dominio.com
-
 
 EOF
 }
@@ -132,8 +131,6 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 info "🚀 Iniciando instalación de Infisical..."
-info "   Directorio: $INFISICAL_DIR"
-info "   URL: $INFISICAL_URL"
 info "   Entorno: $ENVIRONMENT"
 if [ -n "$DOMAIN" ]; then
     info "   Dominio: $DOMAIN"
@@ -185,34 +182,16 @@ success "Docker Compose encontrado: $(docker-compose --version)"
 echo ""
 
 # ============================================================================
-# Paso 4: Crear directorio y copiar archivos
+# Paso 4: Buscar y cambiar al directorio de agendia-infra
 # ============================================================================
-info "📁 Paso 4: Configurando directorio de Infisical..."
+info "📁 Buscando directorio de configuración..."
 
-# Obtener ruta del script actual ANTES de cambiar de directorio
+# Obtener ruta del script actual
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORIGINAL_PWD="$(pwd)"
 
-# Crear directorio (específico por entorno si no es local)
-# Para local, usar /opt/infisical
-# Para otros entornos, usar /opt/infisical-{entorno}
-if [ "$ENVIRONMENT" = "local" ]; then
-    INFISICAL_DIR="/opt/infisical"
-else
-    INFISICAL_DIR="/opt/infisical-$ENVIRONMENT"
-fi
-
-mkdir -p "$INFISICAL_DIR"
-cd "$INFISICAL_DIR"
-
-# Crear subdirectorios
-mkdir -p data/postgres logs backups
-# Buscar archivos de configuración en agendia-infra/setup/infisical
-# Primero intentar desde el directorio del script (si está en agendia-infra)
-# Luego intentar desde el directorio original de trabajo
-# Finalmente intentar desde ubicaciones estándar
+# Buscar directorio agendia-infra/setup/infisical
 INFISICAL_CONFIG_DIR=""
-# Buscar cualquier archivo docker-compose*.yml
 if [ -f "$SCRIPT_DIR/../../agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$SCRIPT_DIR/../../agendia-infra/setup/infisical/docker-compose.yml" ]; then
     INFISICAL_CONFIG_DIR="$SCRIPT_DIR/../../agendia-infra/setup/infisical"
 elif [ -f "$ORIGINAL_PWD/agendia-infra/setup/infisical/docker-compose.dev.yml" ] || [ -f "$ORIGINAL_PWD/agendia-infra/setup/infisical/docker-compose.yml" ]; then
@@ -232,78 +211,22 @@ else
     exit 1
 fi
 
-# Copiar archivos de configuración
-info "Copiando archivos de configuración desde $INFISICAL_CONFIG_DIR..."
-# Intentar copiar docker-compose.dev.yml primero, luego docker-compose.yml
-if [ -f "$INFISICAL_CONFIG_DIR/docker-compose.dev.yml" ]; then
-    cp "$INFISICAL_CONFIG_DIR/docker-compose.dev.yml" "$INFISICAL_DIR/"
-    success "docker-compose.dev.yml copiado"
-elif [ -f "$INFISICAL_CONFIG_DIR/docker-compose.yml" ]; then
-    cp "$INFISICAL_CONFIG_DIR/docker-compose.yml" "$INFISICAL_DIR/"
-    success "docker-compose.yml copiado"
-else
-    error "No se encontró docker-compose*.yml en $INFISICAL_CONFIG_DIR"
-    exit 1
-fi
-
-# Verificar y copiar archivo .env según entorno
-ENV_FILE=".env.$ENVIRONMENT"
-if [ "$ENVIRONMENT" = "local" ]; then
-    ENV_FILE=".env"
-fi
-
-# Intentar copiar .env desde el directorio de configuración
-if [ -f "$INFISICAL_CONFIG_DIR/$ENV_FILE" ]; then
-    cp "$INFISICAL_CONFIG_DIR/$ENV_FILE" "$INFISICAL_DIR/$ENV_FILE"
-    success "Archivo $ENV_FILE copiado desde $INFISICAL_CONFIG_DIR"
-elif [ -f "$INFISICAL_DIR/$ENV_FILE" ]; then
-    info "Archivo $ENV_FILE ya existe en $INFISICAL_DIR"
-else
-    info "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
-    info "Puedes crear el archivo manualmente en: $INFISICAL_DIR/$ENV_FILE"
-fi
-
-# Copiar scripts auxiliares (si están en el directorio de configuración)
-if [ -f "$INFISICAL_CONFIG_DIR/backup.sh" ]; then
-    cp "$INFISICAL_CONFIG_DIR/backup.sh" "$INFISICAL_DIR/"
-    chmod +x "$INFISICAL_DIR/backup.sh"
-    success "backup.sh copiado"
-elif [ -f "$SCRIPT_DIR/backup.sh" ]; then
-    cp "$SCRIPT_DIR/backup.sh" "$INFISICAL_DIR/"
-    chmod +x "$INFISICAL_DIR/backup.sh"
-    success "backup.sh copiado"
-fi
-
-# Cambiar propietario si hay un usuario sudo
-if [ -n "$SUDO_USER" ]; then
-    chown -R "$SUDO_USER:$SUDO_USER" "$INFISICAL_DIR"
-    success "Permisos configurados para usuario $SUDO_USER"
-fi
-
-success "Directorio configurado: $INFISICAL_DIR"
+# Cambiar al directorio de configuración
+cd "$INFISICAL_CONFIG_DIR"
+success "Trabajando desde: $INFISICAL_CONFIG_DIR"
 echo ""
 
-# ============================================================================
-# Paso 5: Configuración completada
-# ============================================================================
-success "Configuración de directorios completada"
-echo ""
+# Crear subdirectorios necesarios si no existen
+info "📁 Verificando subdirectorios necesarios..."
+mkdir -p data/postgres logs backups
+success "Subdirectorios verificados"
 
 # ============================================================================
-# Paso 6: Iniciar Infisical
+# Verificar archivos de configuración
 # ============================================================================
-info "🚀 Paso 6: Iniciando Infisical..."
-
-cd "$INFISICAL_DIR"
-    
-# Determinar archivo .env
-ENV_FILE=".env.$ENVIRONMENT"
-    if [ "$ENVIRONMENT" = "local" ]; then
-    ENV_FILE=".env"
-    fi
+info "📋 Verificando archivos de configuración..."
 
 # Determinar archivo docker-compose según entorno
-# Lógica escalable: cuando se agreguen otros entornos, se usarán automáticamente
 case "$ENVIRONMENT" in
     "local")
         COMPOSE_FILE="docker-compose.dev.yml"  # Por ahora local usa dev también
@@ -322,15 +245,41 @@ case "$ENVIRONMENT" in
         ;;
 esac
 
-if [ ! -f "$COMPOSE_FILE" ]; then
-    error "Archivo docker-compose no encontrado: $COMPOSE_FILE"
-    error "Asegúrate de que el archivo existe en el directorio actual"
+# Verificar archivo docker-compose
+if [ ! -f "$COMPOSE_FILE" ] && [ ! -f "docker-compose.yml" ]; then
+    error "No se encontró archivo docker-compose en $INFISICAL_CONFIG_DIR"
+    error "Asegúrate de que existe $COMPOSE_FILE o docker-compose.yml"
     exit 1
 fi
 
-info "Usando archivo docker-compose: $COMPOSE_FILE"
-    
-# Cambiar a usuario no-root si es posible
+# Usar docker-compose.yml como fallback si no existe el específico
+if [ ! -f "$COMPOSE_FILE" ]; then
+    COMPOSE_FILE="docker-compose.yml"
+    warning "Usando docker-compose.yml como fallback"
+fi
+
+success "Archivo docker-compose encontrado: $COMPOSE_FILE"
+
+# Verificar archivo .env según entorno
+ENV_FILE=".env.$ENVIRONMENT"
+if [ "$ENVIRONMENT" = "local" ]; then
+    ENV_FILE=".env"
+fi
+
+if [ -f "$ENV_FILE" ]; then
+    success "Archivo $ENV_FILE encontrado"
+else
+    warning "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
+    warning "Puedes crear el archivo manualmente en: $INFISICAL_CONFIG_DIR/$ENV_FILE"
+fi
+echo ""
+
+# ============================================================================
+# Paso 6: Iniciar Infisical
+# ============================================================================
+info "🚀 Paso 6: Iniciando Infisical..."
+
+# Determinar argumentos de docker-compose
 COMPOSE_ARGS="-f $COMPOSE_FILE"
 ENV_FILE_ARG=""
 if [ -f "$ENV_FILE" ]; then
@@ -338,6 +287,12 @@ if [ -f "$ENV_FILE" ]; then
     COMPOSE_ARGS="$COMPOSE_ARGS $ENV_FILE_ARG"
 fi
 
+info "Usando archivo docker-compose: $COMPOSE_FILE"
+if [ -n "$ENV_FILE_ARG" ]; then
+    info "Usando archivo .env: $ENV_FILE"
+fi
+
+# Cambiar a usuario no-root si es posible
 if [ -n "$SUDO_USER" ]; then
     sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS pull -q
     sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS up -d
@@ -361,10 +316,10 @@ fi
 echo ""
 
 # ============================================================================
-# Paso 8: Configurar Nginx (si se proporcionó dominio)
+# Configurar Nginx (si se proporcionó dominio)
 # ============================================================================
 if [ -n "$DOMAIN" ] && [ "$SKIP_NGINX" = false ]; then
-    info "🌐 Paso 8: Configurando Nginx para dominio: $DOMAIN"
+    info "🌐 Configurando Nginx para dominio: $DOMAIN"
     
     # Verificar Nginx
     if ! command -v nginx &> /dev/null; then
@@ -413,18 +368,18 @@ EOF
         certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email admin@$DOMAIN --redirect
         
         # Actualizar URLs en .env para usar HTTPS
-        sed -i "s|INFISICAL_SERVER_URL=.*|INFISICAL_SERVER_URL=https://$DOMAIN|g" "$INFISICAL_DIR/.env"
-        sed -i "s|INFISICAL_SITE_URL=.*|INFISICAL_SITE_URL=https://$DOMAIN|g" "$INFISICAL_DIR/.env"
-        
-        # Reiniciar Infisical con nuevas URLs
-        cd "$INFISICAL_DIR"
-        # COMPOSE_ARGS ya está definido arriba con el archivo correcto
-        if [ -n "$SUDO_USER" ]; then
-            sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS down
-            sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS up -d
-        else
-            docker-compose $COMPOSE_ARGS down
-            docker-compose $COMPOSE_ARGS up -d
+        if [ -f "$ENV_FILE" ]; then
+            sed -i "s|INFISICAL_SERVER_URL=.*|INFISICAL_SERVER_URL=https://$DOMAIN|g" "$ENV_FILE"
+            sed -i "s|INFISICAL_SITE_URL=.*|INFISICAL_SITE_URL=https://$DOMAIN|g" "$ENV_FILE"
+            
+            # Reiniciar Infisical con nuevas URLs
+            if [ -n "$SUDO_USER" ]; then
+                sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS down
+                sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS up -d
+            else
+                docker-compose $COMPOSE_ARGS down
+                docker-compose $COMPOSE_ARGS up -d
+            fi
         fi
         
         success "SSL configurado para $DOMAIN"
@@ -436,9 +391,9 @@ EOF
 fi
 
 # ============================================================================
-# Paso 9: Configurar firewall
+# Configurar firewall
 # ============================================================================
-info "🔒 Paso 9: Configurando firewall..."
+info "🔒 Configurando firewall..."
 
 if command -v ufw &> /dev/null; then
     # Permitir SSH (importante hacerlo primero)
@@ -466,13 +421,14 @@ fi
 echo ""
 
 # ============================================================================
-# Paso 10: Configurar backup automático
+# Configurar backup automático
 # ============================================================================
-info "💾 Paso 10: Configurando backup automático..."
+info "💾 Configurando backup automático..."
 
-if [ -f "$INFISICAL_DIR/backup.sh" ]; then
+if [ -f "backup.sh" ]; then
+    chmod +x backup.sh
     # Agregar a crontab para backup diario a las 2 AM
-    CRON_JOB="0 2 * * * cd $INFISICAL_DIR && ./backup.sh --env $ENVIRONMENT >> $INFISICAL_DIR/backup.log 2>&1"
+    CRON_JOB="0 2 * * * cd $INFISICAL_CONFIG_DIR && ./backup.sh --env $ENVIRONMENT >> $INFISICAL_CONFIG_DIR/backup.log 2>&1"
     
     if [ -n "$SUDO_USER" ]; then
         (crontab -u "$SUDO_USER" -l 2>/dev/null | grep -v "backup.sh"; echo "$CRON_JOB") | crontab -u "$SUDO_USER" -
@@ -487,21 +443,9 @@ fi
 echo ""
 
 # ============================================================================
-# Paso 10: Verificación final
+# Verificación final
 # ============================================================================
-info "✅ Paso 11: Verificando instalación..."
-
-cd "$INFISICAL_DIR"
-
-# Determinar archivo .env para verificación
-ENV_FILE=".env.$ENVIRONMENT"
-if [ "$ENVIRONMENT" = "local" ]; then
-    ENV_FILE=".env"
-fi
-ENV_FILE_ARG=""
-if [ -f "$ENV_FILE" ]; then
-    ENV_FILE_ARG="--env-file $ENV_FILE"
-fi
+info "✅ Verificando instalación..."
 
 # Verificar contenedores
 if docker-compose $COMPOSE_ARGS ps | grep -q "Up"; then
@@ -517,8 +461,8 @@ fi
 info "Verificando conectividad..."
 sleep 5
 
-if curl -s -f "http://localhost:5002" > /dev/null 2>&1; then
-    success "Infisical responde correctamente en http://localhost:5002"
+if curl -s -f "$INFISICAL_URL" > /dev/null 2>&1; then
+    success "Infisical responde correctamente en $INFISICAL_URL"
 else
     warning "Infisical no responde. Revisa los logs: docker-compose -f $COMPOSE_FILE logs infisical"
 fi
@@ -570,17 +514,17 @@ info "🔧 Configuración de Entornos en Infisical:"
 echo "   - Entorno actual: $ENVIRONMENT"
 echo "   - Cada entorno (local, dev, staging, prod) debe tener sus propios secretos"
 echo "   - Usa diferentes tokens para cada entorno en los microservicios"
-echo "   - Ver: agendia-infra/setup/infisical/ENTORNOS.md"
-echo "   - Ver: ../../../agendia-docs/docs/desarrollo/gestion-secretos.md"
+echo "   - Ver: agendia-docs/docs/desarrollo/gestion-secretos.md"
 echo ""
 info "🔐 Archivos importantes:"
 ENV_FILE=".env.$ENVIRONMENT"
 if [ "$ENVIRONMENT" = "local" ]; then
     ENV_FILE=".env"
 fi
-echo "   - Archivo .env: $INFISICAL_DIR/$ENV_FILE"
-echo "   - Logs: $INFISICAL_DIR/logs/"
-echo "   - Backups: $INFISICAL_DIR/backups/"
+echo "   - Directorio de trabajo: $INFISICAL_CONFIG_DIR"
+echo "   - Archivo .env: $INFISICAL_CONFIG_DIR/$ENV_FILE"
+echo "   - Logs: $INFISICAL_CONFIG_DIR/logs/"
+echo "   - Backups: $INFISICAL_CONFIG_DIR/backups/"
 echo ""
 info "📝 Nota sobre configuración:"
 echo "   - Infisical puede funcionar sin .env (usa valores por defecto)"
@@ -588,13 +532,13 @@ echo "   - Para producción, crea un .env con secretos seguros"
 echo "   - Los secretos de tu aplicación se gestionan desde la UI de Infisical"
 echo ""
 info "📚 Comandos útiles:"
-echo "   - Ver logs: cd $INFISICAL_DIR && docker-compose -f $COMPOSE_FILE logs -f"
-echo "   - Reiniciar: cd $INFISICAL_DIR && docker-compose -f $COMPOSE_FILE restart"
-echo "   - Detener: cd $INFISICAL_DIR && docker-compose -f $COMPOSE_FILE down"
-echo "   - Backup manual: cd $INFISICAL_DIR && ./backup.sh"
+echo "   - Ver logs: cd $INFISICAL_CONFIG_DIR && docker-compose -f $COMPOSE_FILE logs -f"
+echo "   - Reiniciar: cd $INFISICAL_CONFIG_DIR && docker-compose -f $COMPOSE_FILE restart"
+echo "   - Detener: cd $INFISICAL_CONFIG_DIR && docker-compose -f $COMPOSE_FILE down"
+echo "   - Backup manual: cd $INFISICAL_CONFIG_DIR && ./backup.sh"
 echo ""
 info "📖 Documentación:"
-echo "   - Ver: ../../../agendia-docs/docs/setup/infisical-linux.md"
+echo "   - Ver: agendia-docs/docs/setup/infisical-linux.md"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

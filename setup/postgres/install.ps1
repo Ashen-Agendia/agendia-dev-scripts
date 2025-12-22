@@ -139,6 +139,8 @@ Write-Host ""
 
 # Cambiar al directorio de configuración
 Set-Location $POSTGRES_CONFIG_DIR
+Write-Success "Trabajando desde: $POSTGRES_CONFIG_DIR"
+Write-Host ""
 
 # Crear subdirectorios necesarios si no existen
 Write-Info "📁 Verificando subdirectorios necesarios..."
@@ -186,20 +188,26 @@ if (-not (Test-Path $COMPOSE_FILE_PATH)) {
     }
 }
 
-Write-Info "Usando archivo docker-compose: $COMPOSE_FILE"
+Write-Info "📋 Verificando archivos de configuración..."
+Write-Success "Archivo docker-compose encontrado: $COMPOSE_FILE"
 
 # Verificar archivo .env
 $ENV_FILE = if ($Environment -eq "local") { ".env" } else { ".env.$Environment" }
 if (Test-Path $ENV_FILE) {
-    Write-Info "Archivo $ENV_FILE encontrado"
+    Write-Success "Archivo $ENV_FILE encontrado"
 } else {
     Write-Warning "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
+    Write-Warning "Puedes crear el archivo manualmente en: $POSTGRES_CONFIG_DIR\$ENV_FILE"
 }
 
 Write-Host ""
 
 # Iniciar PostgreSQL
-Write-Info "🚀 Iniciando PostgreSQL..."
+Write-Info "🚀 Paso 6: Iniciando PostgreSQL..."
+Write-Info "Usando archivo docker-compose: $COMPOSE_FILE"
+if (Test-Path $ENV_FILE) {
+    Write-Info "Usando archivo .env: $ENV_FILE"
+}
 Write-Info "📥 Descargando imágenes de Docker (esto puede tardar varios minutos)..."
 try {
     $pullOutput = docker-compose -f $COMPOSE_FILE pull -q 2>&1

@@ -144,6 +144,8 @@ Write-Host ""
 
 # Cambiar al directorio de configuración
 Set-Location $INFISICAL_CONFIG_DIR
+Write-Success "Trabajando desde: $INFISICAL_CONFIG_DIR"
+Write-Host ""
 
 # Crear subdirectorios necesarios si no existen
 Write-Info "📁 Verificando subdirectorios necesarios..."
@@ -171,7 +173,8 @@ if (-not (Test-Path (Join-Path $INFISICAL_CONFIG_DIR $COMPOSE_FILE))) {
     exit 1
 }
 
-Write-Info "Usando archivo docker-compose: $COMPOSE_FILE"
+Write-Info "📋 Verificando archivos de configuración..."
+Write-Success "Archivo docker-compose encontrado: $COMPOSE_FILE"
 
 # Verificar archivo .env
 $ENV_FILE = if ($Environment -eq "local") { ".env" } else { ".env.$Environment" }
@@ -225,7 +228,8 @@ if (Test-Path $ENV_FILE) {
         # Ignorar errores al leer el archivo .env
     }
 } else {
-    Write-Info "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
+    Write-Warning "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
+    Write-Warning "Puedes crear el archivo manualmente en: $INFISICAL_CONFIG_DIR\$ENV_FILE"
 }
 
 Write-Host ""
@@ -239,7 +243,11 @@ if (Test-Path $ENV_FILE) {
 }
 
 # Iniciar Infisical
-Write-Info "🚀 Iniciando Infisical..."
+Write-Info "🚀 Paso 6: Iniciando Infisical..."
+Write-Info "Usando archivo docker-compose: $COMPOSE_FILE"
+if ($ENV_FILE_ARG) {
+    Write-Info "Usando archivo .env: $ENV_FILE"
+}
 try {
     # Descargar imágenes
     Write-Info "📥 Descargando imágenes de Docker (esto puede tardar varios minutos)..."
