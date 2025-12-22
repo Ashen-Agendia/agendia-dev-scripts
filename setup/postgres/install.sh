@@ -245,16 +245,21 @@ else
     exit 1
 fi
 
-# Verificar archivo .env según entorno
+# Verificar y copiar archivo .env según entorno
 ENV_FILE=".env.$ENVIRONMENT"
 if [ "$ENVIRONMENT" = "local" ]; then
     ENV_FILE=".env"
 fi
 
-if [ -f "$POSTGRES_DIR/$ENV_FILE" ]; then
-    info "Archivo $ENV_FILE encontrado"
+# Intentar copiar .env desde el directorio de configuración
+if [ -f "$POSTGRES_CONFIG_DIR/$ENV_FILE" ]; then
+    cp "$POSTGRES_CONFIG_DIR/$ENV_FILE" "$POSTGRES_DIR/$ENV_FILE"
+    success "Archivo $ENV_FILE copiado desde $POSTGRES_CONFIG_DIR"
+elif [ -f "$POSTGRES_DIR/$ENV_FILE" ]; then
+    info "Archivo $ENV_FILE ya existe en $POSTGRES_DIR"
 else
     warning "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
+    warning "Puedes crear el archivo manualmente en: $POSTGRES_DIR/$ENV_FILE"
 fi
 
 # Copiar scripts SQL

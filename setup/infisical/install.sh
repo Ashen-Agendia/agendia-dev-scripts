@@ -246,16 +246,21 @@ else
     exit 1
 fi
 
-# Verificar archivo .env según entorno
+# Verificar y copiar archivo .env según entorno
 ENV_FILE=".env.$ENVIRONMENT"
 if [ "$ENVIRONMENT" = "local" ]; then
     ENV_FILE=".env"
 fi
 
-if [ -f "$INFISICAL_DIR/$ENV_FILE" ]; then
-    info "Archivo $ENV_FILE encontrado"
+# Intentar copiar .env desde el directorio de configuración
+if [ -f "$INFISICAL_CONFIG_DIR/$ENV_FILE" ]; then
+    cp "$INFISICAL_CONFIG_DIR/$ENV_FILE" "$INFISICAL_DIR/$ENV_FILE"
+    success "Archivo $ENV_FILE copiado desde $INFISICAL_CONFIG_DIR"
+elif [ -f "$INFISICAL_DIR/$ENV_FILE" ]; then
+    info "Archivo $ENV_FILE ya existe en $INFISICAL_DIR"
 else
     info "Archivo $ENV_FILE no encontrado. Usando valores por defecto del docker-compose.yml"
+    info "Puedes crear el archivo manualmente en: $INFISICAL_DIR/$ENV_FILE"
 fi
 
 # Copiar scripts auxiliares (si están en el directorio de configuración)
