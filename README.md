@@ -96,12 +96,19 @@ agendia-dev-scripts/
 │   │   ├── clean.sh            # Limpieza completa (Bash)
 │   │   ├── clean.ps1           # Limpieza completa (PowerShell)
 │   │   └── backup.sh           # Backups
-│   └── postgres/               # Scripts para PostgreSQL
-│       ├── install.sh          # Instalación automática (Bash)
-│       ├── install.ps1         # Instalación automática (PowerShell)
-│       ├── clean.sh            # Limpieza completa (Bash)
-│       ├── clean.ps1           # Limpieza completa (PowerShell)
-│       └── backup.sh           # Backups
+│   ├── postgres/               # Scripts para PostgreSQL
+│   │   ├── install.sh          # Instalación automática (Bash)
+│   │   ├── install.ps1         # Instalación automática (PowerShell)
+│   │   ├── clean.sh            # Limpieza completa (Bash)
+│   │   ├── clean.ps1           # Limpieza completa (PowerShell)
+│   │   └── backup.sh           # Backups
+│   └── devops/                 # Scripts para DevOps Dashboard
+│       ├── start-devops.sh     # Iniciar backend y frontend (Bash)
+│       ├── start-devops.ps1    # Iniciar backend y frontend (PowerShell)
+│       ├── stop-devops.sh      # Detener backend y frontend (Bash)
+│       ├── stop-devops.ps1     # Detener backend y frontend (PowerShell)
+│       ├── restart-devops.sh   # Reiniciar backend y frontend (Bash)
+│       └── restart-devops.ps1  # Reiniciar backend y frontend (PowerShell)
 │
 ├── repos/                       # Scripts para gestionar repositorios
 │   ├── clone-all-repos.sh      # Clonar todos los repos
@@ -146,6 +153,13 @@ chmod +x install.sh backup.sh clean.sh
 sudo ./install.sh
 ```
 
+**DevOps Dashboard:**
+```bash
+cd agendia-dev-scripts/setup/devops
+chmod +x start-devops.sh stop-devops.sh restart-devops.sh
+./start-devops.sh
+```
+
 #### Windows (PowerShell)
 
 **Infisical:**
@@ -158,6 +172,12 @@ cd agendia-dev-scripts\setup\infisical
 ```powershell
 cd agendia-dev-scripts\setup\postgres
 .\install.ps1
+```
+
+**DevOps Dashboard:**
+```powershell
+cd agendia-dev-scripts\setup\devops
+.\start-devops.ps1
 ```
 
 ---
@@ -390,6 +410,98 @@ tail -f agendia-infra/setup/infisical/backups/backup.log
 ---
 
 **📚 Documentación completa:** Ver [Scripts de Setup](../../agendia-docs/docs/setup/scripts-setup.md)
+
+---
+
+## 🛠️ Scripts del DevOps Dashboard
+
+Scripts para gestionar el DevOps Dashboard (backend .NET y frontend React).
+
+### Iniciar DevOps Dashboard
+
+#### `setup/devops/start-devops.sh` / `setup/devops/start-devops.ps1`
+
+Inicia el backend .NET y el frontend React del DevOps Dashboard en modo desarrollo.
+
+**Bash:**
+```bash
+cd agendia-dev-scripts/setup/devops
+chmod +x start-devops.sh
+./start-devops.sh
+```
+
+**PowerShell:**
+```powershell
+cd agendia-dev-scripts\setup\devops
+.\start-devops.ps1
+```
+
+**Características:**
+- Verifica e instala dependencias automáticamente (Node.js, npm, .NET SDK 8.0+)
+- Instala dependencias del frontend si no existen (`node_modules`)
+- Copia `.env.example` a `.env` si no existe
+- Inicia backend en `http://localhost:5000`
+- Inicia frontend en `http://localhost:3010`
+- Guarda los logs en `logs/devops/`
+- Guarda los PIDs en `.devops-pids` para poder detenerlos después
+- Espera a que los servicios estén listos antes de continuar
+
+**Requisitos:**
+- Node.js 18+
+- npm
+- .NET SDK 8.0+
+
+---
+
+### Detener DevOps Dashboard
+
+#### `setup/devops/stop-devops.sh` / `setup/devops/stop-devops.ps1`
+
+Detiene el backend y frontend del DevOps Dashboard.
+
+**Bash:**
+```bash
+cd agendia-dev-scripts/setup/devops
+chmod +x stop-devops.sh
+./stop-devops.sh
+```
+
+**PowerShell:**
+```powershell
+cd agendia-dev-scripts\setup\devops
+.\stop-devops.ps1
+```
+
+**Características:**
+- Lee los PIDs desde `.devops-pids` y detiene los procesos
+- Si no encuentra el archivo, intenta detener procesos en los puertos 5000 y 3010
+- Muestra un resumen de los procesos detenidos
+
+---
+
+### Reiniciar DevOps Dashboard
+
+#### `setup/devops/restart-devops.sh` / `setup/devops/restart-devops.ps1`
+
+Reinicia el backend y frontend del DevOps Dashboard.
+
+**Bash:**
+```bash
+cd agendia-dev-scripts/setup/devops
+chmod +x restart-devops.sh
+./restart-devops.sh
+```
+
+**PowerShell:**
+```powershell
+cd agendia-dev-scripts\setup\devops
+.\restart-devops.ps1
+```
+
+**Características:**
+- Detiene los servicios actuales
+- Espera 2 segundos
+- Inicia los servicios nuevamente
 
 ---
 
