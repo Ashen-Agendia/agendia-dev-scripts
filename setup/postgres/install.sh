@@ -148,13 +148,52 @@ echo ""
 # ============================================================================
 info "📦 Paso 3: Verificando Docker Compose..."
 
-if ! command -v docker-compose &> /dev/null; then
-    error "Docker Compose no está instalado."
-    error "Instala Docker Compose ejecutando: install-system-deps.sh"
-    error "O instala Docker Compose manualmente desde: https://docs.docker.com/compose/install/"
+# Verificar Docker Compose v2 (plugin) o v1 (standalone)
+DOCKER_COMPOSE_CMD=""
+DOCKER_COMPOSE_VERSION=""
+
+# Verificar si docker compose (plugin v2) está disponible
+# El plugin v2 se ejecuta como "docker compose" (con espacio)
+# Verificamos primero si docker está disponible (ya verificado antes)
+if command -v docker &> /dev/null 2>&1; then
+    # Verificar Docker Compose v2 (plugin) - múltiples métodos
+    COMPOSE_V2_AVAILABLE=false
+    
+    # Método 1: Intentar ejecutar el comando directamente
+    if docker compose version &> /dev/null 2>&1; then
+        COMPOSE_V2_AVAILABLE=true
+    # Método 2: Verificar si el plugin está listado en los plugins de Docker
+    elif docker info 2>/dev/null | grep -q "compose"; then
+        COMPOSE_V2_AVAILABLE=true
+    # Método 3: Verificar si el paquete docker-compose-plugin está instalado (Ubuntu/Debian)
+    elif dpkg -l 2>/dev/null | grep -q "docker-compose-plugin"; then
+        COMPOSE_V2_AVAILABLE=true
+    # Método 4: Verificar si existe el binario del plugin
+    elif [ -f "/usr/libexec/docker/cli-plugins/docker-compose" ] || [ -f "/usr/local/lib/docker/cli-plugins/docker-compose" ] || [ -f "$HOME/.docker/cli-plugins/docker-compose" ]; then
+        COMPOSE_V2_AVAILABLE=true
+    fi
+    
+    if [ "$COMPOSE_V2_AVAILABLE" = true ]; then
+        # Docker Compose v2 (plugin)
+        DOCKER_COMPOSE_CMD="docker compose"
+        # Intentar obtener la versión, si falla usar un valor por defecto
+        DOCKER_COMPOSE_VERSION=$(docker compose version 2>/dev/null | awk '{print $4}' 2>/dev/null || echo "v2")
+        success "Docker Compose encontrado: ${DOCKER_COMPOSE_VERSION} (plugin v2)"
+    elif command -v docker-compose &> /dev/null 2>&1; then
+        # Docker Compose v1 (standalone)
+        DOCKER_COMPOSE_CMD="docker-compose"
+        DOCKER_COMPOSE_VERSION=$(docker-compose --version 2>/dev/null | awk '{print $3}' | sed 's/,//' || echo "v1")
+        success "Docker Compose encontrado: ${DOCKER_COMPOSE_VERSION} (standalone v1)"
+    else
+        error "Docker Compose no está instalado."
+        error "Instala Docker Compose ejecutando: install-system-deps.sh"
+        error "O instala Docker Compose manualmente desde: https://docs.docker.com/compose/install/"
+        exit 1
+    fi
+else
+    error "Docker no está disponible. Esto no debería pasar ya que se verificó anteriormente."
     exit 1
 fi
-success "Docker Compose encontrado: $(docker-compose --version)"
 echo ""
 
 # ============================================================================
@@ -308,11 +347,11 @@ fi
 
 # Cambiar a usuario no-root si es posible
 if [ -n "$SUDO_USER" ]; then
-    sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS pull -q
-    sudo -u "$SUDO_USER" docker-compose $COMPOSE_ARGS up -d
+    sudo -u "$SUDO_USER" $DOCKER_COMPOSE_CMD $COMPOSE_ARGS pull -q
+    sudo -u "$SUDO_USER" $DOCKER_COMPOSE_CMD $COMPOSE_ARGS up -d
 else
-    docker-compose $COMPOSE_ARGS pull -q
-    docker-compose $COMPOSE_ARGS up -d
+    $DOCKER_COMPOSE_CMD $COMPOSE_ARGS pull -q
+    $DOCKER_COMPOSE_CMD $COMPOSE_ARGS up -d
 fi
 
 # Esperar a que el servicio inicie
@@ -320,11 +359,11 @@ info "Esperando a que PostgreSQL inicie..."
 sleep 10
 
 # Verificar estado
-if docker-compose $COMPOSE_ARGS ps | grep -q "Up"; then
+if $DOCKER_COMPOSE_CMD $COMPOSE_ARGS ps | grep -q "Up"; then
     success "PostgreSQL iniciado correctamente"
 else
     error "Error al iniciar PostgreSQL. Revisa los logs:"
-    docker-compose $COMPOSE_ARGS logs --tail=50
+    $DOCKER_COMPOSE_CMD $COMPOSE_ARGS logs --tail=50
     exit 1
 fi
 echo ""
@@ -384,12 +423,12 @@ echo ""
 info "✅ Verificando instalación..."
 
 # Verificar contenedores
-if docker-compose $COMPOSE_ARGS ps | grep -q "Up"; then
+if $DOCKER_COMPOSE_CMD $COMPOSE_ARGS ps | grep -q "Up"; then
     success "Contenedores corriendo"
-    docker-compose $COMPOSE_ARGS ps
+    $DOCKER_COMPOSE_CMD $COMPOSE_ARGS ps
 else
     error "Algunos contenedores no están corriendo"
-    docker-compose $COMPOSE_ARGS ps
+    $DOCKER_COMPOSE_CMD $COMPOSE_ARGS ps
     exit 1
 fi
 
@@ -400,7 +439,7 @@ sleep 5
 if docker exec agendia-postgres pg_isready -U postgres > /dev/null 2>&1; then
     success "PostgreSQL responde correctamente"
 else
-    warning "PostgreSQL no responde. Revisa los logs: docker-compose -f $COMPOSE_FILE logs postgres"
+    warning "PostgreSQL no responde. Revisa los logs: $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE logs postgres"
 fi
 
 echo ""
@@ -436,14 +475,14 @@ if [ "$ENVIRONMENT" = "local" ]; then
 fi
 echo "   - Directorio de trabajo: $POSTGRES_CONFIG_DIR"
 echo "   - Archivo .env: $POSTGRES_CONFIG_DIR/$ENV_FILE"
-echo "   - Logs: docker-compose -f $COMPOSE_FILE logs postgres"
+echo "   - Logs: $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE logs postgres"
 echo "   - Scripts SQL: $POSTGRES_CONFIG_DIR/../../db-scripts/"
 echo "   - Backups: $POSTGRES_CONFIG_DIR/backups/"
 echo ""
 info "📚 Comandos útiles:"
-echo "   - Ver logs: cd $POSTGRES_CONFIG_DIR && docker-compose -f $COMPOSE_FILE logs -f"
-echo "   - Reiniciar: cd $POSTGRES_CONFIG_DIR && docker-compose -f $COMPOSE_FILE restart"
-echo "   - Detener: cd $POSTGRES_CONFIG_DIR && docker-compose -f $COMPOSE_FILE down"
+echo "   - Ver logs: cd $POSTGRES_CONFIG_DIR && $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE logs -f"
+echo "   - Reiniciar: cd $POSTGRES_CONFIG_DIR && $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE restart"
+echo "   - Detener: cd $POSTGRES_CONFIG_DIR && $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE down"
 echo "   - Backup manual: cd $POSTGRES_CONFIG_DIR && ./backup.sh"
 echo ""
 info "📖 Documentación:"
