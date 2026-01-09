@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script para instalar todas las dependencias del sistema necesarias para Agendia
-# Verifica e instala: Node.js, npm, Java, sbt, gh, jq
+# Verifica e instala: Node.js, npm, Java, sbt, gh, jq, Docker, Docker Compose
 
 # Colores para output
 RED='\033[0;31m'
@@ -318,6 +318,144 @@ install_jq() {
     fi
 }
 
+# Función para instalar Docker
+install_docker() {
+    local pm=$1
+    
+    echo -e "${BLUE}🐳 Instalando Docker...${NC}"
+    
+    if [ "$pm" = "apt" ]; then
+        # Ubuntu/Debian - usar script oficial de Docker
+        if ! command_exists docker; then
+            # Instalar dependencias previas
+            sudo apt-get update
+            sudo apt-get install -y ca-certificates curl gnupg lsb-release
+            
+            # Agregar clave GPG oficial de Docker
+            sudo install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            sudo chmod a+r /etc/apt/keyrings/docker.gpg
+            
+            # Agregar repositorio de Docker
+            echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+              $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+            # Instalar Docker
+            sudo apt-get update
+            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        fi
+    elif [ "$pm" = "dnf" ]; then
+        # Fedora
+        if ! command_exists docker; then
+            sudo dnf install -y dnf-plugins-core
+            sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        fi
+    elif [ "$pm" = "yum" ]; then
+        # CentOS/RHEL
+        if ! command_exists docker; then
+            sudo yum install -y yum-utils
+            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        fi
+    elif [ "$pm" = "brew" ]; then
+        # macOS - Docker Desktop
+        if ! command_exists docker; then
+            echo -e "${YELLOW}⚠️  En macOS, instala Docker Desktop manualmente desde: https://www.docker.com/products/docker-desktop${NC}"
+            return 1
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Instala Docker manualmente desde: https://docs.docker.com/get-docker/${NC}"
+        return 1
+    fi
+    
+    # Iniciar y habilitar servicio Docker (solo en Linux)
+    if [ "$pm" != "brew" ]; then
+        sudo systemctl start docker
+        sudo systemctl enable docker
+    fi
+    
+    # Verificar instalación
+    if command_exists docker; then
+        local docker_version=$(docker --version | awk '{print $3}' | sed 's/,//')
+        echo -e "${GREEN}✅ Docker ${docker_version} instalado${NC}"
+        
+        # Agregar usuario actual al grupo docker (si no es root)
+        if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+            if ! groups "$SUDO_USER" | grep -q docker; then
+                sudo usermod -aG docker "$SUDO_USER"
+                echo -e "${YELLOW}⚠️  Usuario $SUDO_USER agregado al grupo docker${NC}"
+                echo -e "${YELLOW}   Cierra sesión y vuelve a iniciar sesión para aplicar los cambios${NC}"
+            fi
+        fi
+        
+        return 0
+    else
+        echo -e "${RED}❌ Error instalando Docker${NC}"
+        return 1
+    fi
+}
+
+# Función para instalar Docker Compose
+install_docker_compose() {
+    local pm=$1
+    
+    echo -e "${BLUE}📦 Instalando Docker Compose...${NC}"
+    
+    # Verificar si docker-compose-plugin ya está instalado (Docker Compose v2)
+    if docker compose version &> /dev/null; then
+        local compose_version=$(docker compose version | awk '{print $4}')
+        echo -e "${GREEN}✅ Docker Compose ${compose_version} (plugin) ya está instalado${NC}"
+        return 0
+    fi
+    
+    # Verificar si docker-compose (standalone) ya está instalado
+    if command_exists docker-compose; then
+        local compose_version=$(docker-compose --version | awk '{print $3}' | sed 's/,//')
+        echo -e "${GREEN}✅ Docker Compose ${compose_version} (standalone) ya está instalado${NC}"
+        return 0
+    fi
+    
+    # Si docker-compose-plugin no está disponible, instalar standalone
+    local compose_version="v2.24.0"
+    local arch=$(uname -m)
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    
+    # Mapear arquitectura
+    case "$arch" in
+        x86_64)
+            arch="x86_64"
+            ;;
+        aarch64|arm64)
+            arch="aarch64"
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  Arquitectura no soportada: $arch${NC}"
+            echo -e "${YELLOW}   Instala Docker Compose manualmente desde: https://docs.docker.com/compose/install/${NC}"
+            return 1
+            ;;
+    esac
+    
+    # Descargar e instalar Docker Compose standalone
+    local compose_url="https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-${os}-${arch}"
+    local compose_path="/usr/local/bin/docker-compose"
+    
+    if sudo curl -L "$compose_url" -o "$compose_path"; then
+        sudo chmod +x "$compose_path"
+        
+        if command_exists docker-compose; then
+            local installed_version=$(docker-compose --version | awk '{print $3}' | sed 's/,//')
+            echo -e "${GREEN}✅ Docker Compose ${installed_version} instalado${NC}"
+            return 0
+        fi
+    fi
+    
+    echo -e "${RED}❌ Error instalando Docker Compose${NC}"
+    echo -e "${YELLOW}   Instala Docker Compose manualmente desde: https://docs.docker.com/compose/install/${NC}"
+    return 1
+}
+
 # Función principal de instalación
 install_dependencies() {
     local missing_deps=()
@@ -380,6 +518,24 @@ install_dependencies() {
         echo -e "${GREEN}✅ jq $(jq --version | sed 's/jq-//')${NC}"
     fi
     
+    # Verificar Docker
+    if ! command_exists docker; then
+        missing_deps+=("docker")
+    else
+        echo -e "${GREEN}✅ Docker $(docker --version | awk '{print $3}' | sed 's/,//')${NC}"
+    fi
+    
+    # Verificar Docker Compose (plugin o standalone)
+    if ! docker compose version &> /dev/null && ! command_exists docker-compose; then
+        missing_deps+=("docker-compose")
+    else
+        if docker compose version &> /dev/null; then
+            echo -e "${GREEN}✅ Docker Compose $(docker compose version | awk '{print $4}') (plugin)${NC}"
+        else
+            echo -e "${GREEN}✅ Docker Compose $(docker-compose --version | awk '{print $3}' | sed 's/,//') (standalone)${NC}"
+        fi
+    fi
+    
     echo ""
     
     if [ ${#missing_deps[@]} -eq 0 ]; then
@@ -410,6 +566,12 @@ install_dependencies() {
                     ;;
                 jq)
                     echo "  - jq: https://stedolan.github.io/jq/download/"
+                    ;;
+                docker)
+                    echo "  - Docker: https://docs.docker.com/get-docker/"
+                    ;;
+                docker-compose)
+                    echo "  - Docker Compose: https://docs.docker.com/compose/install/"
                     ;;
             esac
         done
@@ -445,6 +607,16 @@ install_dependencies() {
                 ;;
             jq)
                 if ! install_jq "$pm"; then
+                    ((failed++))
+                fi
+                ;;
+            docker)
+                if ! install_docker "$pm"; then
+                    ((failed++))
+                fi
+                ;;
+            docker-compose)
+                if ! install_docker_compose "$pm"; then
                     ((failed++))
                 fi
                 ;;
