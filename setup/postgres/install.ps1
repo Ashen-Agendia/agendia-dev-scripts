@@ -144,7 +144,7 @@ Write-Host ""
 
 # Crear subdirectorios necesarios si no existen
 Write-Info "📁 Verificando subdirectorios necesarios..."
-@("data/postgres", "scripts", "backups") | ForEach-Object {
+@("data/postgres", "backups") | ForEach-Object {
     $dirPath = Join-Path $POSTGRES_CONFIG_DIR $_
     if (-not (Test-Path $dirPath)) {
         New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
@@ -152,20 +152,19 @@ Write-Info "📁 Verificando subdirectorios necesarios..."
     }
 }
 
-# Copiar scripts SQL si no existen en el directorio de configuración
-$sqlScriptsPath = Join-Path (Split-Path -Parent $POSTGRES_CONFIG_DIR) "db\scripts"
-if (Test-Path $sqlScriptsPath) {
-    $scriptsDir = Join-Path $POSTGRES_CONFIG_DIR "scripts"
-    $sqlFiles = Get-ChildItem "$sqlScriptsPath\*.sql" -ErrorAction SilentlyContinue
+# Verificar que los scripts SQL existan en db-scripts
+Write-Info "📋 Verificando scripts SQL de inicialización..."
+$dbScriptsPath = Join-Path (Split-Path -Parent (Split-Path -Parent $POSTGRES_CONFIG_DIR)) "db-scripts"
+if (Test-Path $dbScriptsPath) {
+    $sqlFiles = Get-ChildItem "$dbScriptsPath\*.sql" -ErrorAction SilentlyContinue
     if ($sqlFiles) {
-        foreach ($sqlFile in $sqlFiles) {
-            $destFile = Join-Path $scriptsDir $sqlFile.Name
-            if (-not (Test-Path $destFile)) {
-                Copy-Item $sqlFile -Destination $destFile -Force
-            }
-        }
-        Write-Success "Scripts SQL disponibles en scripts/"
+        Write-Success "Scripts SQL encontrados en db-scripts/ ($($sqlFiles.Count) archivos)"
+        Write-Info "   Los scripts se ejecutarán automáticamente al inicializar PostgreSQL"
+    } else {
+        Write-Warning "No se encontraron archivos .sql en db-scripts/"
     }
+} else {
+    Write-Warning "Directorio db-scripts/ no encontrado en $dbScriptsPath"
 }
 
 # Determinar archivo docker-compose según entorno

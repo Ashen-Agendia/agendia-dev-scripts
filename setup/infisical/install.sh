@@ -346,7 +346,9 @@ info "🚀 Paso 6: Iniciando Infisical..."
 COMPOSE_ARGS="-f $COMPOSE_FILE"
 ENV_FILE_ARG=""
 if [ -f "$ENV_FILE" ]; then
-    ENV_FILE_ARG="--env-file $ENV_FILE"
+    # Usar ruta absoluta para el archivo .env (necesario cuando se usa sudo -u)
+    ENV_FILE_ABS="$(cd "$(dirname "$ENV_FILE")" && pwd)/$(basename "$ENV_FILE")"
+    ENV_FILE_ARG="--env-file $ENV_FILE_ABS"
     COMPOSE_ARGS="$COMPOSE_ARGS $ENV_FILE_ARG"
 fi
 

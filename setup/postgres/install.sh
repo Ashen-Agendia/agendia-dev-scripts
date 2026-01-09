@@ -218,7 +218,7 @@ echo ""
 
 # Crear subdirectorios necesarios si no existen
 info "📁 Verificando subdirectorios necesarios..."
-mkdir -p data/postgres scripts backups
+mkdir -p data/postgres backups
 success "Subdirectorios verificados"
 
 # ============================================================================
@@ -273,12 +273,18 @@ else
     warning "Puedes crear el archivo manualmente en: $POSTGRES_CONFIG_DIR/$ENV_FILE"
 fi
 
-# Copiar scripts SQL desde db-scripts si existen
+# Verificar que los scripts SQL existan en db-scripts
+info "📋 Verificando scripts SQL de inicialización..."
 if [ -d "$POSTGRES_CONFIG_DIR/../../db-scripts" ]; then
-    cp "$POSTGRES_CONFIG_DIR/../../db-scripts/"*.sql "$POSTGRES_CONFIG_DIR/scripts/" 2>/dev/null || true
-    if [ -n "$(ls -A $POSTGRES_CONFIG_DIR/scripts/*.sql 2>/dev/null)" ]; then
-        success "Scripts SQL copiados a scripts/"
+    SQL_COUNT=$(find "$POSTGRES_CONFIG_DIR/../../db-scripts" -name "*.sql" 2>/dev/null | wc -l)
+    if [ "$SQL_COUNT" -gt 0 ]; then
+        success "Scripts SQL encontrados en db-scripts/ ($SQL_COUNT archivos)"
+        info "   Los scripts se ejecutarán automáticamente al inicializar PostgreSQL"
+    else
+        warning "No se encontraron archivos .sql en db-scripts/"
     fi
+else
+    warning "Directorio db-scripts/ no encontrado en $POSTGRES_CONFIG_DIR/../../db-scripts"
 fi
 echo ""
 
@@ -412,7 +418,7 @@ echo "   📊 Base de datos: agendia_dev"
 echo "   👤 Usuario: postgres"
 echo ""
 info "📝 Próximos pasos:"
-echo "   1. Los scripts SQL en scripts/ se ejecutarán automáticamente al iniciar"
+echo "   1. Los scripts SQL en db-scripts/ se ejecutarán automáticamente al iniciar"
 echo "   2. Verifica que los esquemas se hayan creado:"
 echo "      docker exec -it agendia-postgres psql -U postgres -d agendia_dev -c '\\dn'"
 echo "   3. Configura las contraseñas de los usuarios en Infisical"
@@ -431,7 +437,7 @@ fi
 echo "   - Directorio de trabajo: $POSTGRES_CONFIG_DIR"
 echo "   - Archivo .env: $POSTGRES_CONFIG_DIR/$ENV_FILE"
 echo "   - Logs: docker-compose -f $COMPOSE_FILE logs postgres"
-echo "   - Scripts SQL: $POSTGRES_CONFIG_DIR/scripts/"
+echo "   - Scripts SQL: $POSTGRES_CONFIG_DIR/../../db-scripts/"
 echo "   - Backups: $POSTGRES_CONFIG_DIR/backups/"
 echo ""
 info "📚 Comandos útiles:"
