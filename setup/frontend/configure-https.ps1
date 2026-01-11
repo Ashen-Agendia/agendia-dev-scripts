@@ -45,9 +45,24 @@ if ($Help) {
     exit 0
 }
 
-Write-Info "🚀 Configurando frontend completo (shell, template, SSL, nginx build, nginx)..."
+Write-Info "🚀 Configurando frontend completo (shell, template, docs, storybook, SSL, nginx build, nginx)..."
 
-$projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# Buscar raíz del proyecto de forma robusta
+$currentDir = $PSScriptRoot
+$projectRoot = $null
+while ($currentDir -ne $null -and $currentDir -ne "") {
+    if (Test-Path (Join-Path $currentDir "agendia-docs")) {
+        $projectRoot = $currentDir
+        break
+    }
+    $currentDir = Split-Path -Parent $currentDir
+}
+
+if ($null -eq $projectRoot) {
+    Write-Error "No se pudo encontrar la raíz del proyecto (buscando agendia-docs)"
+    exit 1
+}
+
 $frontendDir = Join-Path $projectRoot "agendia-infra" "setup" "frontend"
 $reverseProxyDir = Join-Path $projectRoot "agendia-reverse-proxy"
 
@@ -146,7 +161,7 @@ if (-not $SkipBuild) {
 Write-Info "Iniciando frontends (shell y template)..."
 Push-Location $frontendDir
 try {
-    docker compose -f docker-compose.dev.yml up -d shell template
+    docker compose -f docker-compose.dev.yml up -d shell template docs storybook
     Start-Sleep -Seconds 5
     Write-Success "Frontends iniciados"
 } catch {
@@ -182,6 +197,8 @@ Write-Info "   Shell:    http://localhost:3000"
 Write-Info "   Template: http://localhost:3001"
 Write-Info "   HTTPS:    https://localhost:8443"
 Write-Info "   API:      https://api.localhost:8443"
+Write-Info "   Docs:     https://docs.localhost:8443"
+Write-Info "   Design:   https://design.localhost:8443"
 Write-Host ""
 Write-Info "📦 Servicios en Docker Desktop: agendia-frontend"
 Write-Info "   - shell"
