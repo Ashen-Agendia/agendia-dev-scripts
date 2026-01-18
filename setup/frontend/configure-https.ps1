@@ -1,6 +1,6 @@
 # ============================================================================
 # Script para configurar e iniciar frontend completo con Docker
-# Incluye: shell, template, SSL generation, nginx build y configuración
+# Incluye: shell, template, docs, storybook, devops-dashboard, SSL, nginx build y configuración
 # ============================================================================
 
 param(
@@ -13,31 +13,28 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Write-Info { 
-    Write-Host "ℹ️  $args" -ForegroundColor Cyan
+    Write-Host ("ℹ️  " + $args) -ForegroundColor Cyan
 }
 function Write-Success { 
-    Write-Host "✅ $args" -ForegroundColor Green
+    Write-Host ("✅ " + $args) -ForegroundColor Green
 }
 function Write-Warning { 
-    Write-Host "⚠️  $args" -ForegroundColor Yellow
+    Write-Host ("⚠️  " + $args) -ForegroundColor Yellow
 }
 function Write-Error { 
-    Write-Host "❌ $args" -ForegroundColor Red
+    Write-Host ("❌ " + $args) -ForegroundColor Red
 }
 
 function Show-Help {
-    Write-Host @"
-Script para configurar e iniciar frontend completo con Docker
-Incluye: shell, template, SSL generation, nginx build y configuración
-
-Uso: .\configure-https.ps1 [opciones]
-
-Opciones:
-  -SkipNetwork    No crear/conectar red Docker
-  -SkipSSL        No generar certificados SSL
-  -SkipBuild      No construir imagen de nginx
-  -Help           Mostrar esta ayuda
-"@
+    $helpText = "Script para configurar e iniciar frontend completo con Docker`n" +
+                "Incluye: shell, template, docs, storybook, devops-dashboard, SSL, nginx build y configuración`n`n" +
+                "Uso: .\configure-https.ps1 [opciones]`n`n" +
+                "Opciones:`n" +
+                "  -SkipNetwork    No crear/conectar red Docker`n" +
+                "  -SkipSSL        No generar certificados SSL`n" +
+                "  -SkipBuild      No construir imagen de nginx`n" +
+                "  -Help           Mostrar esta ayuda"
+    Write-Host $helpText
 }
 
 if ($Help) {
@@ -45,7 +42,7 @@ if ($Help) {
     exit 0
 }
 
-Write-Info "🚀 Configurando frontend completo (shell, template, docs, storybook, SSL, nginx build, nginx)..."
+Write-Info "🚀 Configurando frontend completo (shell, template, docs, storybook, devops, SSL, nginx build, nginx)..."
 
 # Buscar raíz del proyecto de forma robusta
 $currentDir = $PSScriptRoot
@@ -66,12 +63,12 @@ if ($null -eq $projectRoot) {
 $frontendDir = Join-Path $projectRoot "agendia-infra" "setup" "frontend"
 $reverseProxyDir = Join-Path $projectRoot "agendia-reverse-proxy"
 
-if (-not (Test-Path $frontendDir)) {
+if (-not (Test-Path "$frontendDir")) {
     Write-Error "Directorio no encontrado: $frontendDir"
     exit 1
 }
 
-if (-not (Test-Path $reverseProxyDir)) {
+if (-not (Test-Path "$reverseProxyDir")) {
     Write-Error "Directorio reverse-proxy no encontrado: $reverseProxyDir"
     exit 1
 }
@@ -79,7 +76,7 @@ if (-not (Test-Path $reverseProxyDir)) {
 # Paso 1: Verificar/Crear red Docker
 if (-not $SkipNetwork) {
     Write-Info "Verificando red Docker agendia-network..."
-    $networkExists = docker network ls --filter name=agendia-network --format "{{.Name}}" 2>&1
+    $networkExists = (docker network ls --filter name=agendia-network --format "{{.Name}}" 2>&1)
     if (-not $networkExists -or $networkExists -ne "agendia-network") {
         Write-Info "Creando red agendia-network..."
         docker network create agendia-network 2>&1 | Out-Null
@@ -92,37 +89,38 @@ if (-not $SkipNetwork) {
 # Paso 2: Configurar .env.dev del reverse-proxy
 Write-Info "Configurando .env.dev del reverse-proxy..."
 $ENV_FILE = Join-Path $reverseProxyDir ".env.dev"
-if (-not (Test-Path $ENV_FILE)) {
+if (-not (Test-Path "$ENV_FILE")) {
     $envExample = Join-Path $reverseProxyDir "env.dev.example"
-    if (Test-Path $envExample) {
-        Copy-Item $envExample $ENV_FILE
+    if (Test-Path "$envExample") {
+        Copy-Item "$envExample" "$ENV_FILE"
     } else {
         $envExampleAlt = Join-Path $reverseProxyDir ".env.example"
-        if (Test-Path $envExampleAlt) {
-            Copy-Item $envExampleAlt $ENV_FILE
+        if (Test-Path "$envExampleAlt") {
+            Copy-Item "$envExampleAlt" "$ENV_FILE"
         } else {
             Write-Warning "No se encontró env.dev.example, creando .env.dev con valores por defecto"
-            @"
-DOMAIN_NAME=localhost
-AGENDIA_IP=127.0.0.1
-FRONTEND_HOST=agendia-frontend-shell
-FRONTEND_PORT=3000
-BACKEND_HOST=agendia-api-gateway
-BACKEND_PORT=8080
-INFISICAL_HOST=agendia-infisical
-INFISICAL_PORT=8080
-INFISICAL_DOMAIN=infisical.localhost
-SHELL_HOST=agendia-frontend-shell
-SHELL_PORT=3000
-SHELL_DOMAIN=shell.localhost
-TEMPLATE_HOST=agendia-frontend-template
-TEMPLATE_PORT=3001
-TEMPLATE_DOMAIN=template.localhost
-API_GATEWAY_HOST=agendia-api-gateway
-API_GATEWAY_PORT=8080
-TEMPLATE_MS_HOST=agendia-backend-template-ms
-TEMPLATE_MS_PORT=4001
-"@ | Out-File -FilePath $ENV_FILE -Encoding utf8
+            $defaultLines = @(
+                "DOMAIN_NAME=localhost",
+                "AGENDIA_IP=127.0.0.1",
+                "FRONTEND_HOST=agendia-frontend-shell",
+                "FRONTEND_PORT=3000",
+                "BACKEND_HOST=agendia-api-gateway",
+                "BACKEND_PORT=8080",
+                "INFISICAL_HOST=agendia-infisical",
+                "INFISICAL_PORT=8080",
+                "INFISICAL_DOMAIN=infisical.localhost",
+                "SHELL_HOST=agendia-frontend-shell",
+                "SHELL_PORT=3000",
+                "SHELL_DOMAIN=shell.localhost",
+                "TEMPLATE_HOST=agendia-frontend-template",
+                "TEMPLATE_PORT=3001",
+                "TEMPLATE_DOMAIN=template.localhost",
+                "API_GATEWAY_HOST=agendia-api-gateway",
+                "API_GATEWAY_PORT=8080",
+                "TEMPLATE_MS_HOST=agendia-backend-template-ms",
+                "TEMPLATE_MS_PORT=4001"
+            )
+            $defaultLines | Out-File -FilePath "$ENV_FILE" -Encoding utf8
         }
     }
     Write-Success ".env.dev creado"
@@ -133,9 +131,9 @@ TEMPLATE_MS_PORT=4001
 # Paso 3: Generar certificados SSL si no existen
 if (-not $SkipSSL) {
     $SSL_SCRIPT = Join-Path $reverseProxyDir "scripts\generate-ssl.ps1"
-    if (Test-Path $SSL_SCRIPT) {
+    if (Test-Path "$SSL_SCRIPT") {
         Write-Info "Generando certificados SSL..."
-        & $SSL_SCRIPT
+        & "$SSL_SCRIPT"
         Write-Success "Certificados SSL generados"
     } else {
         Write-Warning "Script generate-ssl.ps1 no encontrado en $SSL_SCRIPT"
@@ -146,7 +144,7 @@ if (-not $SkipSSL) {
 # Paso 4: Build de nginx (si no se omite)
 if (-not $SkipBuild) {
     Write-Info "Construyendo imagen de nginx..."
-    Push-Location $frontendDir
+    Push-Location "$frontendDir"
     try {
         docker compose -f docker-compose.dev.yml build nginx 2>&1 | Out-Null
         Write-Success "Imagen de nginx construida"
@@ -157,35 +155,48 @@ if (-not $SkipBuild) {
     }
 }
 
-# Paso 5: Iniciar frontends (shell y template)
-Write-Info "Iniciando frontends (shell y template)..."
-Push-Location $frontendDir
+# Paso 5: Iniciar devops-api (backend)
+Write-Info "Iniciando devops-api (backend)..."
+$backendSetupDir = Join-Path $projectRoot "agendia-infra\setup\backend"
+Push-Location "$backendSetupDir"
 try {
-    docker compose -f docker-compose.dev.yml up -d shell template docs storybook
+    docker compose -f docker-compose.dev.yml up -d devops-api
+    Write-Success "DevOps API iniciada"
+} catch {
+    Write-Warning "Error al iniciar devops-api: $_"
+} finally {
+    Pop-Location
+}
+
+# Paso 6: Iniciar frontends (incluye devops-dashboard, docs, storybook)
+Write-Info "Iniciando frontends (shell, template, docs, storybook, devops)..."
+Push-Location "$frontendDir"
+try {
+    docker compose -f docker-compose.dev.yml up -d shell template docs storybook devops-dashboard
     Start-Sleep -Seconds 5
     Write-Success "Frontends iniciados"
 } catch {
-    Write-Error "Error al iniciar frontends: $_"
+    Write-Error ("Error al iniciar frontends: " + $_)
     exit 1
 } finally {
     Pop-Location
 }
 
-# Paso 6: Iniciar nginx
+# Paso 7: Iniciar nginx
 Write-Info "Iniciando nginx (reverse-proxy)..."
-Push-Location $frontendDir
+Push-Location "$frontendDir"
 try {
     docker compose -f docker-compose.dev.yml up -d nginx
     Start-Sleep -Seconds 3
     
-    $nginxRunning = docker ps --format '{{.Names}}' 2>&1 | Select-String -Pattern "^agendia-nginx$" -Quiet
+    $nginxRunning = (docker ps --format '{{.Names}}' 2>&1 | Select-String -Pattern "^agendia-nginx$" -Quiet)
     if ($nginxRunning) {
         Write-Success "Nginx iniciado correctamente"
     } else {
         Write-Warning "Nginx no está corriendo, revisa los logs"
     }
 } catch {
-    Write-Warning "Error al iniciar nginx: $_"
+    Write-Warning ("Error al iniciar nginx: " + $_)
 } finally {
     Pop-Location
 }
@@ -199,10 +210,14 @@ Write-Info "   HTTPS:    https://localhost:8443"
 Write-Info "   API:      https://api.localhost:8443"
 Write-Info "   Docs:     https://docs.localhost:8443"
 Write-Info "   Design:   https://design.localhost:8443"
+Write-Info "   DevOps:   https://devops.localhost:8443"
 Write-Host ""
 Write-Info "📦 Servicios en Docker Desktop: agendia-frontend"
 Write-Info "   - shell"
 Write-Info "   - template"
+Write-Info "   - docs"
+Write-Info "   - storybook"
+Write-Info "   - devops-dashboard"
 Write-Info "   - nginx"
 Write-Host ""
-Write-Info "💡 Para regenerar SSL: bash $reverseProxyDir\scripts\generate-ssl.ps1"
+Write-Host ("💡 Para regenerar SSL: bash " + $reverseProxyDir + "\scripts\generate-ssl.ps1")

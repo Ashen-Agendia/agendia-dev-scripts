@@ -5,7 +5,7 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SCRIPTS_ROOT = Split-Path -Parent (Split-Path -Parent $SCRIPT_DIR)
 $ROOT_DIR = Split-Path -Parent $SCRIPTS_ROOT
 
-$DEVOPS_DIR = Join-Path $ROOT_DIR "agendia-infra\setup\devops"
+$DEVOPS_DIR = Join-Path $ROOT_DIR "agendia-devops"
 $BACKEND_ROOT = Join-Path $DEVOPS_DIR "backend"
 $BACKEND_DIR = Join-Path $BACKEND_ROOT "Agendia.DevOps.Api"
 $FRONTEND_DIR = Join-Path $DEVOPS_DIR "frontend"
