@@ -9,6 +9,7 @@ ROOT_DIR="$(dirname "$SCRIPTS_ROOT")"
 
 MS_DIRS=(
   "agendia-template-ms"
+  "agendia-ms-auth"
   "agendia-ms-agenda"
   "agendia-ms-clients"
   "agendia-ms-notifications"

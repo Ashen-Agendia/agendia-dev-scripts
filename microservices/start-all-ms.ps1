@@ -7,8 +7,7 @@ $SCRIPT_DIR  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SCRIPTS_ROOT = Split-Path -Parent $SCRIPT_DIR
 $ROOT_DIR    = Split-Path -Parent $SCRIPTS_ROOT
 
-$MS_DIRS = @(
-  "agendia-template-ms",
+  "agendia-ms-auth",
   "agendia-ms-agenda",
   "agendia-ms-clients",
   "agendia-ms-notifications",

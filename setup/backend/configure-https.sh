@@ -28,7 +28,7 @@ if [ ! -d "$BACKEND_DIR" ]; then
     exit 1
 fi
 
-info "🚀 Configurando backend completo (API Gateway y template-ms)..."
+info "🚀 Configurando backend completo (API Gateway, auth-ms y template-ms)..."
 
 # Paso 1: Verificar/Crear red Docker
 if [ "$SKIP_NETWORK" != "true" ]; then
@@ -42,16 +42,19 @@ if [ "$SKIP_NETWORK" != "true" ]; then
     fi
 fi
 
-# Paso 2: Iniciar backend (template-ms primero, luego API Gateway)
-info "Iniciando backend (template-ms y API Gateway)..."
+# Paso 2: Iniciar backend (auth-ms y template-ms primero, luego API Gateway)
+info "Iniciando backend (auth-ms, template-ms y API Gateway)..."
 cd "$BACKEND_DIR"
 
-# Primero template-ms (API Gateway depende de él)
+# Iniciar servicios dependientes
+info "Iniciando auth-ms..."
+docker compose -f docker-compose.dev.yml up -d auth-ms
+
 info "Iniciando template-ms..."
 docker compose -f docker-compose.dev.yml up -d template-ms
 
-# Esperar a que template-ms esté listo
-info "Esperando a que template-ms esté listo..."
+# Esperar a que los servicios estén listos
+info "Esperando a que los servicios estén listos..."
 sleep 10
 
 # Luego API Gateway
@@ -75,19 +78,28 @@ else
     warning "Template MS no está corriendo, revisa los logs"
 fi
 
+if docker ps --format '{{.Names}}' | grep -q "^agendia-ms-auth$"; then
+    success "Auth MS iniciado correctamente"
+else
+    warning "Auth MS no está corriendo, revisa los logs"
+fi
+
 success "🎉 Configuración de backend completada"
 echo ""
 info "🌐 Servicios disponibles:"
 info "   API Gateway: http://localhost:8080"
 info "   Template MS: http://localhost:4001"
+info "   Auth MS:     http://localhost:8082 (interno: 8081)"
 info "   Health checks:"
 info "     - API Gateway: http://localhost:8080/health"
 info "     - Template MS: http://localhost:4001/health"
-info "     - Via Gateway: http://localhost:8080/template/health"
+info "     - Auth MS:     http://localhost:8082/health"
+info "     - Via Gateway: http://localhost:8080/auth/health"
 echo ""
 info "📦 Servicios en Docker Desktop: agendia-backend"
 info "   - api-gateway"
 info "   - template-ms"
+info "   - auth-ms"
 echo ""
 info "💡 Nota: Los servicios pueden tardar unos minutos en compilar la primera vez"
 info "   Revisa los logs con: docker logs agendia-api-gateway"

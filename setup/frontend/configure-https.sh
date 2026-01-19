@@ -80,6 +80,9 @@ API_GATEWAY_HOST=agendia-api-gateway
 API_GATEWAY_PORT=8080
 TEMPLATE_MS_HOST=agendia-backend-template-ms
 TEMPLATE_MS_PORT=4001
+AUTH_FRONTEND_HOST=agendia-mf-auth
+AUTH_FRONTEND_PORT=3002
+AUTH_DOMAIN=auth.localhost
 EOF
     fi
     success ".env.dev creado"
@@ -108,9 +111,9 @@ if [ "$SKIP_BUILD" != "true" ]; then
 fi
 
 # Paso 5: Iniciar frontends (shell y template)
-info "Iniciando frontends (shell y template)..."
+info "Iniciando frontends (shell, template y auth)..."
 cd "$FRONTEND_DIR"
-docker compose -f docker-compose.dev.yml up -d shell template
+docker compose -f docker-compose.dev.yml up -d shell template auth-frontend
 
 # Esperar un poco para que los frontends inicien
 sleep 5
@@ -131,12 +134,15 @@ echo ""
 info "🌐 Servicios disponibles:"
 info "   Shell:    http://localhost:3000"
 info "   Template: http://localhost:3001"
+info "   Auth:     http://localhost:3002"
 info "   HTTPS:    https://localhost:8443"
+info "   Auth Sub: https://auth.localhost:8443"
 info "   API:      https://api.localhost:8443"
 echo ""
 info "📦 Servicios en Docker Desktop: agendia-frontend"
 info "   - shell"
 info "   - template"
+info "   - auth-frontend"
 info "   - nginx"
 echo ""
 info "💡 Para regenerar SSL: bash $REVERSE_PROXY_DIR/scripts/generate-ssl.sh"
