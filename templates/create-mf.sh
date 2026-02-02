@@ -19,7 +19,7 @@ TEMPLATE_DIR="$ROOT_DIR/agendia-template-mf"
 MF_DIR="$ROOT_DIR/agendia-mf-${MF_NAME}"
 SHELL_DIR="$ROOT_DIR/agendia-mf-shell"
 SHELL_ROUTES="$SHELL_DIR/src/config/routes.config.ts"
-SHELL_ENV="$SHELL_DIR/.env.dev"
+ROOT_ENV_LOCAL="$ROOT_DIR/.env.local"
 
 if [ ! -d "$TEMPLATE_DIR" ]; then
   echo "❌ Error: Template directory not found at $TEMPLATE_DIR"
@@ -84,12 +84,9 @@ sed -i.bak "s/\/template/\/${MF_NAME}/g" src/config/root.config.ts
 sed -i.bak "s/Template/${MF_DISPLAY_NAME}/g" src/config/root.config.ts
 rm src/config/root.config.ts.bak
 
-echo "🔧 Creando .env.dev..."
-cat > .env.dev << EOF
-VITE_PORT=${PORT}
-VITE_MF_NAME=mf-${MF_NAME}
-VITE_MF_ROUTE_PREFIX=/${MF_NAME}
-EOF
+echo "🔧 Configurando variables para dev (sin crear .env en subcarpetas)..."
+echo "   Para correr este MF:"
+echo "     VITE_PORT=${PORT} VITE_MF_NAME=mf-${MF_NAME} VITE_MF_ROUTE_PREFIX=/${MF_NAME} npm run dev"
 
 if [ "$EXISTING_DIR" = false ]; then
   echo "🧹 Limpiando archivos temporales..."
@@ -101,16 +98,16 @@ if [ -d "$SHELL_DIR" ]; then
   
   ENV_VAR_NAME="VITE_MF_$(echo "$MF_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')_URL"
   ENV_LINE="${ENV_VAR_NAME}=http://localhost:${PORT}"
-  
-  if [ -f "$SHELL_ENV" ]; then
-    if ! grep -q "^${ENV_VAR_NAME}=" "$SHELL_ENV"; then
-      echo "" >> "$SHELL_ENV"
-      echo "$ENV_LINE" >> "$SHELL_ENV"
-      echo "✅ Agregado ${ENV_VAR_NAME} a .env.dev del shell"
+
+  # En Agendia, el env está centralizado en la raíz. Agregamos la URL del nuevo MF a .env.local
+  if [ -f "$ROOT_ENV_LOCAL" ]; then
+    if ! grep -q "^${ENV_VAR_NAME}=" "$ROOT_ENV_LOCAL"; then
+      echo "" >> "$ROOT_ENV_LOCAL"
+      echo "$ENV_LINE" >> "$ROOT_ENV_LOCAL"
+      echo "✅ Agregado ${ENV_VAR_NAME} a .env.local (raíz)"
     fi
   else
-    echo "$ENV_LINE" > "$SHELL_ENV"
-    echo "✅ Creado .env.dev en el shell"
+    echo "⚠️  No existe $ROOT_ENV_LOCAL. Crea .env.local en la raíz para centralizar variables."
   fi
   
   if [ -f "$SHELL_ROUTES" ]; then

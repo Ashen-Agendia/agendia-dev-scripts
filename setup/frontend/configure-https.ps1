@@ -86,46 +86,13 @@ if (-not $SkipNetwork) {
     }
 }
 
-# Paso 2: Configurar .env.dev del reverse-proxy
-Write-Info "Configurando .env.dev del reverse-proxy..."
-$ENV_FILE = Join-Path $reverseProxyDir ".env.dev"
-if (-not (Test-Path "$ENV_FILE")) {
-    $envExample = Join-Path $reverseProxyDir "env.dev.example"
-    if (Test-Path "$envExample") {
-        Copy-Item "$envExample" "$ENV_FILE"
-    } else {
-        $envExampleAlt = Join-Path $reverseProxyDir ".env.example"
-        if (Test-Path "$envExampleAlt") {
-            Copy-Item "$envExampleAlt" "$ENV_FILE"
-        } else {
-            Write-Warning "No se encontró env.dev.example, creando .env.dev con valores por defecto"
-            $defaultLines = @(
-                "DOMAIN_NAME=localhost",
-                "AGENDIA_IP=127.0.0.1",
-                "FRONTEND_HOST=agendia-frontend-shell",
-                "FRONTEND_PORT=3000",
-                "BACKEND_HOST=agendia-api-gateway",
-                "BACKEND_PORT=8080",
-                "INFISICAL_HOST=agendia-infisical",
-                "INFISICAL_PORT=8080",
-                "INFISICAL_DOMAIN=infisical.localhost",
-                "SHELL_HOST=agendia-frontend-shell",
-                "SHELL_PORT=3000",
-                "SHELL_DOMAIN=shell.localhost",
-                "TEMPLATE_HOST=agendia-frontend-template",
-                "TEMPLATE_PORT=3001",
-                "TEMPLATE_DOMAIN=template.localhost",
-                "API_GATEWAY_HOST=agendia-api-gateway",
-                "API_GATEWAY_PORT=8080",
-                "TEMPLATE_MS_HOST=agendia-backend-template-ms",
-                "TEMPLATE_MS_PORT=4001"
-            )
-            $defaultLines | Out-File -FilePath "$ENV_FILE" -Encoding utf8
-        }
-    }
-    Write-Success ".env.dev creado"
-} else {
-    Write-Info ".env.dev ya existe"
+# Paso 2: Usar env centralizado en la raíz del workspace
+Write-Info "Usando env centralizado en la raíz (.env.local/.env.dev)..."
+$rootEnvLocal = Join-Path $projectRoot ".env.local"
+$rootEnvDev = Join-Path $projectRoot ".env.dev"
+if (-not (Test-Path $rootEnvLocal) -and -not (Test-Path $rootEnvDev)) {
+    Write-Error "No se encontró $rootEnvLocal ni $rootEnvDev. Crea uno desde .env.local.example/.env.dev.example en la raíz."
+    exit 1
 }
 
 # Paso 3: Generar certificados SSL si no existen

@@ -12,6 +12,33 @@ BACKEND_ROOT="$DEVOPS_DIR/backend"
 BACKEND_DIR="$BACKEND_ROOT/Agendia.DevOps.Api"
 FRONTEND_DIR="$DEVOPS_DIR/frontend"
 
+# Env centralizado en la raíz (preferimos local)
+ROOT_ENV_LOCAL="$ROOT_DIR/.env.local"
+ROOT_ENV_DEV="$ROOT_DIR/.env.dev"
+ENV_FILE=""
+if [ -f "$ROOT_ENV_LOCAL" ]; then
+  ENV_FILE="$ROOT_ENV_LOCAL"
+elif [ -f "$ROOT_ENV_DEV" ]; then
+  ENV_FILE="$ROOT_ENV_DEV"
+fi
+
+if [ -n "$ENV_FILE" ]; then
+  info "Cargando env centralizado desde $ENV_FILE"
+  # Exporta variables KEY=VALUE ignorando comentarios
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ""|\#*) continue ;;
+    esac
+    if echo "$line" | grep -q '='; then
+      key="$(echo "$line" | cut -d= -f1)"
+      val="$(echo "$line" | cut -d= -f2-)"
+      export "$key=$val"
+    fi
+  done < "$ENV_FILE"
+else
+  warning "No se encontró .env.local ni .env.dev en la raíz. Continuando sin env centralizado."
+fi
+
 PIDS_FILE="$SCRIPTS_ROOT/.devops-pids"
 LOGS_DIR="$SCRIPTS_ROOT/logs/devops"
 
@@ -175,8 +202,7 @@ info "Iniciando backend..."
 cd "$BACKEND_DIR" || exit 1
 
 if [ ! -f "$BACKEND_ROOT/.env" ]; then
-    warning ".env no encontrado en $BACKEND_ROOT"
-    warning "Por favor crea el archivo .env en el directorio backend"
+    warning ".env no encontrado en $BACKEND_ROOT (ok: env centralizado en la raíz)"
 fi
 
 dotnet restore > /dev/null 2>&1
@@ -237,8 +263,7 @@ if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
 fi
 
 if [ ! -f "$FRONTEND_DIR/.env" ]; then
-    warning ".env no encontrado en $FRONTEND_DIR"
-    warning "Por favor crea el archivo .env en el directorio frontend"
+    warning ".env no encontrado en $FRONTEND_DIR (ok: env centralizado en la raíz)"
 fi
 
 FRONTEND_LOG="$LOGS_DIR/frontend.log"

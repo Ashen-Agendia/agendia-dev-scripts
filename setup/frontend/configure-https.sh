@@ -51,43 +51,12 @@ if [ "$SKIP_NETWORK" != "true" ]; then
 fi
 
 # Paso 2: Configurar .env.dev del reverse-proxy
-info "Configurando .env.dev del reverse-proxy..."
-ENV_FILE="$REVERSE_PROXY_DIR/.env.dev"
-if [ ! -f "$ENV_FILE" ]; then
-    if [ -f "$REVERSE_PROXY_DIR/env.dev.example" ]; then
-        cp "$REVERSE_PROXY_DIR/env.dev.example" "$ENV_FILE"
-    elif [ -f "$REVERSE_PROXY_DIR/.env.example" ]; then
-        cp "$REVERSE_PROXY_DIR/.env.example" "$ENV_FILE"
-    else
-        warning "No se encontró env.dev.example, creando .env.dev con valores por defecto"
-        cat > "$ENV_FILE" << EOF
-DOMAIN_NAME=localhost
-AGENDIA_IP=127.0.0.1
-FRONTEND_HOST=agendia-frontend-shell
-FRONTEND_PORT=3000
-BACKEND_HOST=agendia-api-gateway
-BACKEND_PORT=8080
-INFISICAL_HOST=agendia-infisical
-INFISICAL_PORT=8080
-INFISICAL_DOMAIN=infisical.localhost
-SHELL_HOST=agendia-frontend-shell
-SHELL_PORT=3000
-SHELL_DOMAIN=shell.localhost
-TEMPLATE_HOST=agendia-frontend-template
-TEMPLATE_PORT=3001
-TEMPLATE_DOMAIN=template.localhost
-API_GATEWAY_HOST=agendia-api-gateway
-API_GATEWAY_PORT=8080
-TEMPLATE_MS_HOST=agendia-backend-template-ms
-TEMPLATE_MS_PORT=4001
-AUTH_FRONTEND_HOST=agendia-mf-auth
-AUTH_FRONTEND_PORT=3002
-AUTH_DOMAIN=auth.localhost
-EOF
-    fi
-    success ".env.dev creado"
-else
-    info ".env.dev ya existe"
+info "Usando env centralizado en la raíz (.env.local/.env.dev)..."
+ROOT_ENV_LOCAL="$PROJECT_ROOT/.env.local"
+ROOT_ENV_DEV="$PROJECT_ROOT/.env.dev"
+if [ ! -f "$ROOT_ENV_LOCAL" ] && [ ! -f "$ROOT_ENV_DEV" ]; then
+    error "No se encontró $ROOT_ENV_LOCAL ni $ROOT_ENV_DEV. Crea uno desde .env.local.example/.env.dev.example en la raíz."
+    exit 1
 fi
 
 # Paso 3: Generar certificados SSL si no existen
@@ -96,6 +65,7 @@ if [ "$SKIP_SSL" != "true" ]; then
     if [ -f "$SSL_SCRIPT" ]; then
         info "Generando certificados SSL..."
         chmod +x "$SSL_SCRIPT" 2>/dev/null || true
+        # generate-ssl.sh auto-detecta ../.env.local o ../.env.dev
         bash "$SSL_SCRIPT" || warning "Error al generar SSL, continuando..."
     else
         warning "Script generate-ssl.sh no encontrado en $SSL_SCRIPT"

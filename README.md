@@ -190,20 +190,15 @@ Los scripts **NO crean** archivos `.env` automáticamente. Debes crearlos manual
 
 **Linux/Mac:**
 ```bash
-# Para PostgreSQL
-cp agendia-infra/setup/postgres/.env.example agendia-infra/setup/postgres/.env.dev
-
-# Para Infisical
-cp agendia-infra/setup/infisical/.env.example agendia-infra/setup/infisical/.env.dev
+# Agendia usa env centralizado en la raíz
+cp .env.dev.example .env.dev
+cp .env.local.example .env.local
 ```
 
 **Windows:**
 ```powershell
-# Para PostgreSQL
-Copy-Item agendia-infra\setup\postgres\.env.example agendia-infra\setup\postgres\.env.dev
-
-# Para Infisical
-Copy-Item agendia-infra\setup\infisical\.env.example agendia-infra\setup\infisical\.env.dev
+Copy-Item .env.dev.example .env.dev
+Copy-Item .env.local.example .env.local
 ```
 
 #### Entornos
@@ -336,17 +331,17 @@ sudo ./install.sh --env dev
 
 **PostgreSQL:**
 ```bash
-# Copiar .env.example
-cp agendia-infra/setup/postgres/.env.example agendia-infra/setup/postgres/.env.dev
+# Agendia usa env centralizado en la raíz
+cp .env.local.example .env.local
+cp .env.dev.example .env.dev
 
-# Editar y completar valores
-nano agendia-infra/setup/postgres/.env.dev
+# Editar y completar valores según tu entorno
+nano .env.local
 ```
 
 **Infisical:**
 ```bash
-# Copiar .env.example (si existe) o crear manualmente
-# Ver agendia-infra/setup/infisical/.env.example como referencia
+# Variables de Infisical también viven en /.env.local y /.env.dev (raíz)
 ```
 
 **3. Ejecutar Scripts:**
@@ -439,7 +434,7 @@ cd agendia-dev-scripts\setup\devops
 **Características:**
 - Verifica e instala dependencias automáticamente (Node.js, npm, .NET SDK 8.0+)
 - Instala dependencias del frontend si no existen (`node_modules`)
-- Copia `.env.example` a `.env` si no existe
+- Usa env centralizado en la raíz (no crea `.env` en subcarpetas)
 - Inicia backend en `http://localhost:5000`
 - Inicia frontend en `http://localhost:3010`
 - Guarda los logs en `logs/devops/`
@@ -795,8 +790,8 @@ Crea un nuevo microfrontend desde el template base con configuración automátic
 
 **Características:**
 - ✅ Detecta automáticamente un puerto disponible (desde 3001)
-- ✅ Crea el `.env.dev` con el puerto correcto
-- ✅ Actualiza automáticamente el shell (`routes.config.ts` y `.env.dev`)
+- ✅ No crea `.env*` en subcarpetas (env centralizado)
+- ✅ Actualiza automáticamente el shell (`routes.config.ts`) y agrega la URL del MF a `/.env.local`
 - ✅ Configura todos los archivos necesarios
 - ✅ Limpia archivos temporales
 
@@ -807,9 +802,9 @@ Crea un nuevo microfrontend desde el template base con configuración automátic
 3. **Actualiza `package.json`** con el nuevo nombre
 4. **Actualiza `vite.config.ts`** con el nuevo nombre y puerto
 5. **Actualiza `src/config/root.config.ts`** con la configuración del MF
-6. **Crea `.env.dev`** con las variables de entorno
+6. **No crea `.env` por repo**: imprime las variables para correr el MF en dev
 7. **Actualiza el shell** automáticamente:
-   - Agrega la variable de entorno al `.env.dev` del shell
+   - Agrega la variable de entorno a `/.env.local` (raíz)
    - Registra el MF en `routes.config.ts`
 8. **Limpia** `node_modules`, `dist` y `.git`
 

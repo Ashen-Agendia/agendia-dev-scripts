@@ -10,6 +10,37 @@ $BACKEND_ROOT = Join-Path $DEVOPS_DIR "backend"
 $BACKEND_DIR = Join-Path $BACKEND_ROOT "Agendia.DevOps.Api"
 $FRONTEND_DIR = Join-Path $DEVOPS_DIR "frontend"
 
+# Env centralizado en la raíz (preferimos local)
+$rootEnvLocal = Join-Path $ROOT_DIR ".env.local"
+$rootEnvDev = Join-Path $ROOT_DIR ".env.dev"
+$envFile = $null
+if (Test-Path $rootEnvLocal) { $envFile = $rootEnvLocal }
+elseif (Test-Path $rootEnvDev) { $envFile = $rootEnvDev }
+
+function Import-DotEnvFile {
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path $Path)) { return }
+    $lines = Get-Content $Path -ErrorAction SilentlyContinue
+    foreach ($line in $lines) {
+        if (-not $line) { continue }
+        $trim = $line.Trim()
+        if ($trim.StartsWith("#")) { continue }
+        $idx = $trim.IndexOf("=")
+        if ($idx -lt 1) { continue }
+        $key = $trim.Substring(0, $idx).Trim()
+        $val = $trim.Substring($idx + 1)
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+        $env:$key = $val
+    }
+}
+
+if ($envFile) {
+    Write-Host "🔧 Cargando env centralizado desde $envFile" -ForegroundColor Cyan
+    Import-DotEnvFile -Path $envFile
+} else {
+    Write-Host "⚠️  No se encontró .env.local ni .env.dev en la raíz. Continuando sin env centralizado." -ForegroundColor Yellow
+}
+
 $PIDS_FILE = Join-Path $SCRIPTS_ROOT ".devops-pids"
 $LOGS_ROOT = Join-Path $SCRIPTS_ROOT "logs"
 $LOGS_DIR = Join-Path $LOGS_ROOT "devops"
@@ -170,11 +201,6 @@ Clear-Port -Port $BACKEND_PORT | Out-Null
 
 Push-Location $BACKEND_DIR
 
-if (-not (Test-Path (Join-Path $BACKEND_ROOT ".env"))) {
-    Write-Host "   ⚠️  .env no encontrado en $BACKEND_ROOT" -ForegroundColor Yellow
-    Write-Host "   Por favor crea el archivo .env en el directorio backend" -ForegroundColor Yellow
-}
-
 $backendLog = Join-Path $LOGS_DIR "backend.log"
 $backendErr = Join-Path $LOGS_DIR "backend.error.log"
 
@@ -249,11 +275,6 @@ if (-not (Test-Path "node_modules")) {
         Pop-Location
         exit 1
     }
-}
-
-if (-not (Test-Path (Join-Path $FRONTEND_DIR ".env"))) {
-    Write-Host "   ⚠️  .env no encontrado en $FRONTEND_DIR" -ForegroundColor Yellow
-    Write-Host "   Por favor crea el archivo .env en el directorio frontend" -ForegroundColor Yellow
 }
 
 $frontendLog = Join-Path $LOGS_DIR "frontend.log"
